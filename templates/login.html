@@ -1,0 +1,112 @@
+{% extends 'base.html' %} {% block content %}
+
+<div class="login-wrapper">
+  <div class="card login-card shadow-lg p-4">
+    <!-- Logo / Icon -->
+    <div class="text-center mb-3">
+      <div class="logo-circle mb-3">
+        <i class="bi bi-heart-pulse-fill fs-1 text-danger"></i>
+      </div>
+      <h2 class="fw-bold text-gradient">Đăng nhập</h2>
+      <p class="text-muted">Nhập tài khoản để truy cập hệ thống</p>
+    </div>
+
+    <!-- Form đăng nhập -->
+    <form method="post">
+      <div class="mb-3 input-group rounded-pill shadow-sm login-input-group">
+        <span class="input-group-text"
+          ><i class="bi bi-person-fill text-primary"></i
+        ></span>
+        <input
+          type="text"
+          name="username"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Tài khoản"
+          required
+        />
+      </div>
+
+      <div class="mb-4 input-group rounded-pill shadow-sm login-input-group password-toggle-group overflow-hidden">
+        <span class="input-group-text"
+          ><i class="bi bi-lock-fill text-primary"></i
+        ></span>
+        <input
+          type="password"
+          name="password"
+          id="loginPassword"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Mật khẩu"
+          required
+        />
+        <button
+          class="btn btn-link border-0 text-muted toggle-password"
+          type="button"
+          data-target="loginPassword"
+          aria-label="Ẩn/hiện mật khẩu"
+        >
+          <i class="bi bi-eye-slash-fill"></i>
+        </button>
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-login w-100 py-2 rounded-pill fw-semibold shadow-sm"
+      >
+        Đăng nhập
+      </button>
+    </form>
+    <div class="text-center mt-3">
+      <a href="{{ url_for('forgot_password') }}" class="text-decoration-none small">
+        Quên mật khẩu?
+      </a>
+    </div>
+
+    {% if social_google_enabled %}
+    <div class="mt-4 border-top pt-3">
+      <p class="text-center text-muted small mb-3">Hoặc truy cập Google</p>
+      <div class="d-grid gap-2">
+        <a
+          href="{{ url_for('oauth_login', provider='google') }}"
+          class="btn btn-outline-danger rounded-pill fw-semibold"
+        >
+          <i class="bi bi-google me-2"></i> Google
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="text-center mt-3 small text-muted">
+      Chưa có tài khoản?
+      <a
+        href="{{ url_for('register') }}"
+        class="text-decoration-none fw-semibold"
+        >Đăng ký ngay</a
+      >
+    </p>
+
+    <p class="text-center mt-3 text-muted small">
+      © 2025 CVD-App. Bảo mật thông tin tuyệt đối.
+    </p>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".toggle-password").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        const isHidden = target.type === "password";
+        target.type = isHidden ? "text" : "password";
+        const icon = btn.querySelector("i");
+        if (icon) {
+          icon.classList.toggle("bi-eye-fill", isHidden);
+          icon.classList.toggle("bi-eye-slash-fill", !isHidden);
+        }
+      });
+    });
+  });
+</script>
+
+{% endblock %}
+

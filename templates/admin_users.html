@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-3 pt-3 fade-section">
+
+  <!-- Tiêu đề -->
+  <h2 class="fw-bold text-gradient mb-4 fade-section fade-delayed-1">
+    👤 {{ page_title }}
+  </h2>
+  <p class="text-muted mb-3 fade-section fade-delayed-2">
+    Quản trị viên có thể thêm, xem, sửa hoặc xóa tài khoản
+    <b>{{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }}</b>.
+  </p>
+
+  <!-- Nút chuyển đổi -->
+  <div class="mb-3 fade-section fade-delayed-2">
+    <a href="{{ url_for('admin_manage_users', type='doctor') }}"
+      class="btn {% if role_type == 'doctor' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill me-2">
+      👨‍⚕️ Quản lý Bác sĩ
+    </a>
+    <a href="{{ url_for('admin_manage_users', type='patient') }}"
+      class="btn {% if role_type == 'patient' %}btn-success{% else %}btn-outline-success{% endif %} rounded-pill">
+      🧍‍♂️ Quản lý Bệnh nhân
+    </a>
+  </div>
+
+  </div>
+
+  <!-- ======================= FORM THÊM NGƯỜI DÙNG ======================= -->
+  <div class="card shadow-sm border-0 rounded-4 mb-4 fade-section fade-delayed-3">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center rounded-top-4">
+      <h5 class="mb-0">➕ Thêm {{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }} mới</h5>
+      <button class="btn btn-light btn-sm fw-semibold rounded-pill" type="button" data-bs-toggle="collapse"
+        data-bs-target="#addUserForm">
+        Hiển thị / Ẩn
+      </button>
+    </div>
+
+    <div class="collapse" id="addUserForm">
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="add_user" value="1" />
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Họ tên</label>
+              <input type="text" name="ho_ten" class="form-control" required placeholder="VD: Nguyễn Văn A" />
+            </div>
+
+            <div class="col-md-2">
+              <label class="form-label fw-semibold">Giới tính</label>
+              <select name="gioi_tinh" class="form-select">
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Ngày sinh</label>
+              <input type="date" name="ngay_sinh" class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control" required
+                placeholder="{{ 'doctor@cvdapp.com' if role_type == 'doctor' else 'patient@cvdapp.com' }}" />
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Mật khẩu</label>
+              <input type="password" name="mat_khau" class="form-control" required placeholder="******" />
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Điện thoại</label>
+              <input type="text" name="dien_thoai" class="form-control" placeholder="0909xxxxxx" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Địa chỉ</label>
+              <input type="text" name="dia_chi" class="form-control" placeholder="VD: 140 Lê Trọng Tấn, Tân Phú" />
+            </div>
+          </div>
+
+          <div class="text-end mt-3">
+            <button type="submit" class="btn btn-success rounded-pill px-4">
+              ➕ Thêm {{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= DANH SÁCH NGƯỜI DÙNG ======================= -->
+  <div class="table-wrapper fade-up-section">
+    <div class="table-responsive shadow-sm rounded-4">
+      <table class="table table-bordered align-middle">
+        <thead class="table-light text-center">
+          <tr>
+            <th>Họ tên</th>
+            <th>Email</th>
+            <th>Giới tính</th>
+            <th>Ngày sinh</th>
+            <th>Điện thoại</th>
+            <th>Địa chỉ</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.HoTen }}</td>
+            <td>{{ u.Email }}</td>
+            <td class="text-center">{{ u.GioiTinh or '—' }}</td>
+            <td class="text-center">
+              {% if u.NgaySinh %}
+              {{ u.NgaySinh.strftime('%d/%m/%Y') }}
+              {% else %} — {% endif %}
+            </td>
+            <td class="text-center">{{ u.DienThoai or '—' }}</td>
+            <td>{{ u.DiaChi or '—' }}</td>
+            <td class="text-center">
+              <div class="action-buttons">
+                <!-- Xem -->
+                <button class="btn btn-outline-info rounded-pill" data-bs-toggle="modal"
+                  data-bs-target="#viewUserModal{{ u.ID }}">
+                  👁 Xem
+                </button>
+                <!-- Sửa -->
+                <button class="btn btn-primary rounded-pill" data-bs-toggle="modal"
+                  data-bs-target="#editUserModal{{ u.ID }}">
+                  ✏️ Sửa
+                </button>
+                <!-- Xóa -->
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="id" value="{{ u.ID }}">
+                  <button type="submit" name="delete_user" class="btn btn-outline-danger rounded-pill delete-btn"
+                    data-role="{{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }}">
+                    🗑 Xóa
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% for u in users %}
+<!-- Modal Xem -->
+<div class="modal fade" id="viewUserModal{{ u.ID }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow-lg border-0">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title">👁 Thông tin {{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item"><b>Họ tên:</b> {{ u.HoTen }}</li>
+          <li class="list-group-item"><b>Giới tính:</b> {{ u.GioiTinh or '—' }}</li>
+          <li class="list-group-item"><b>Ngày sinh:</b> {{ u.NgaySinh.strftime('%d/%m/%Y') if u.NgaySinh else '—' }}</li>
+          <li class="list-group-item"><b>Email:</b> {{ u.Email }}</li>
+          <li class="list-group-item"><b>Điện thoại:</b> {{ u.DienThoai or '—' }}</li>
+          <li class="list-group-item"><b>Địa chỉ:</b> {{ u.DiaChi or '—' }}</li>
+          <li class="list-group-item"><b>Ngày tạo:</b> {{ u.NgayTao.strftime('%d/%m/%Y') if u.NgayTao else '—' }}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Sửa -->
+<div class="modal fade" id="editUserModal{{ u.ID }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow">
+      <form method="post">
+        <input type="hidden" name="id" value="{{ u.ID }}" />
+        <input type="hidden" name="edit_user" value="1" />
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">✏️ Cập nhật thông tin {{ 'bác sĩ' if role_type == 'doctor' else 'bệnh nhân' }}</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Họ tên</label>
+              <input type="text" name="ho_ten" class="form-control" value="{{ u.HoTen }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Giới tính</label>
+              <select name="gioi_tinh" class="form-select">
+                <option value="Nam" {% if u.GioiTinh=='Nam' %}selected{% endif %}>Nam</option>
+                <option value="Nữ" {% if u.GioiTinh=='Nữ' %}selected{% endif %}>Nữ</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Ngày sinh</label>
+              <input type="date" name="ngay_sinh" class="form-control"
+                value="{{ u.NgaySinh.strftime('%Y-%m-%d') if u.NgaySinh else '' }}" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Email</label>
+              <input type="email" name="email" class="form-control" value="{{ u.Email }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Mật khẩu (để trống nếu không đổi)</label>
+              <input type="password" name="mat_khau" class="form-control" placeholder="******" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Điện thoại</label>
+              <input type="text" name="dien_thoai" class="form-control" value="{{ u.DienThoai or '' }}" />
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Địa chỉ</label>
+              <input type="text" name="dia_chi" class="form-control" value="{{ u.DiaChi or '' }}" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button type="submit" class="btn btn-success">💾 Lưu thay đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+<!-- ================== CSS HIỆU ỨNG ================== -->
+<style>
+  .fade-section {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s ease-out;
+  }
+  .fade-section.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .fade-delayed-1 { transition-delay: 0.1s; }
+  .fade-delayed-2 { transition-delay: 0.2s; }
+  .fade-delayed-3 { transition-delay: 0.3s; }
+
+  /* Bảng xuất hiện từ dưới lên */
+  .fade-up-section {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: all 1s ease-out;
+    will-change: opacity, transform;
+  }
+  .fade-up-section.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Căn chỉnh nút hành động */
+  .action-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .action-buttons .btn {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    transition: all 0.15s ease;
+  }
+  .action-buttons .btn:hover {
+    transform: translateY(-1px);
+  }
+  @media (max-width: 992px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  /* 🌈 Tiêu đề và mô tả */
+  h2.fw-bold.text-gradient {
+    font-size: 1.5rem;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  p.text-muted {
+    text-align: center;
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+  }
+
+  /* 🔹 Nút chuyển đổi quản lý */
+  .mb-3.fade-section a.btn {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    padding: 0.45rem 1.1rem;
+  }
+
+  /* 🔹 Form thêm người dùng */
+  .card .row.g-3 > div {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  .card .form-label {
+    font-size: 0.9rem;
+  }
+
+  .card .form-control,
+  .card .form-select {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.9rem;
+  }
+
+  .btn.rounded-pill,
+  .btn {
+    font-size: 0.9rem;
+    padding: 0.45rem 1rem;
+  }
+
+  /* 🔹 Bảng người dùng */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+  }
+
+  .table th,
+  .table td {
+    font-size: 0.85rem;
+    padding: 0.55rem 0.6rem;
+    white-space: nowrap;
+  }
+
+  /* 🔹 Nhóm nút hành động */
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.9rem;
+  }
+
+  /* 🔹 Modal hiển thị full khung trên mobile */
+  .modal-dialog {
+    max-width: 95%;
+    margin: 0.8rem auto;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .modal-body .form-control,
+  .modal-body .form-select {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.8rem;
+  }
+
+  .modal-header h5 {
+    font-size: 1rem;
+  }
+
+  .modal-footer .btn {
+    font-size: 0.9rem;
+    padding: 0.4rem 1rem;
+  }
+
+  /* 🔹 Alert và bảng */
+  .alert {
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* 🔹 Giảm animation trên thiết bị nhỏ để mượt */
+  .fade-section,
+  .fade-up-section {
+    transition-duration: 0.6s;
+  }
+}
+
+/* 📱 Dưới 576px (điện thoại dọc) */
+@media (max-width: 576px) {
+  /* Tiêu đề nhỏ hơn */
+  h2.fw-bold.text-gradient {
+    font-size: 1.3rem;
+  }
+
+  .btn {
+    font-size: 0.85rem;
+    border-radius: 25px;
+  }
+
+  /* Form thêm co lại */
+  .card-body {
+    padding: 1rem;
+  }
+
+  .form-label,
+  .table th,
+  .table td {
+    font-size: 0.8rem;
+  }
+
+  /* Modal */
+  .modal-dialog {
+    max-width: 98%;
+  }
+
+  .modal-body .form-label {
+    font-size: 0.85rem;
+  }
+
+  .modal-body .form-control {
+    font-size: 0.85rem;
+  }
+
+  /* Ẩn icon emoji nếu quá nhỏ */
+  h2.fw-bold.text-gradient::before {
+    content: none;
+  }
+}
+</style>
+
+<!-- ================== SCRIPT ================== -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Hiệu ứng fade + bảng trượt lên
+    const fadeEls = document.querySelectorAll(".fade-section, .fade-up-section");
+    const revealOnScroll = () => {
+      const trigger = window.innerHeight * 0.85;
+      fadeEls.forEach(el => {
+        if (el.getBoundingClientRect().top < trigger) el.classList.add("show");
+      });
+    };
+    window.addEventListener("scroll", revealOnScroll);
+    revealOnScroll();
+
+    // Xác nhận xoá
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        const role = btn.dataset.role;
+        if (!confirm(`Bạn có chắc chắn muốn xóa ${role} này?`)) e.preventDefault();
+      });
+    });
+  });
+</script>
+{% endblock %}

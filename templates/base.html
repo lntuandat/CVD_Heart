@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{ title if title else "CVD-App" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="preload"
+      as="image"
+      href="{{ url_for('static', filename='images/slide1.webp') }}"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="{{ url_for('static', filename='images/slide2.webp') }}"
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="{{ url_for('static', filename='images/slide3.webp') }}"
+    />
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❤️</text></svg>"
+    />
+
+    <!-- CSS chính -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <!-- Google Font -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Custom CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+      }
+
+      .navbar {
+        background: linear-gradient(90deg, #1e63c6, #453baf);
+        background-size: 200% 200%;
+        animation: navFlow 10s ease infinite;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+        white-space: nowrap;
+      }
+      @keyframes navFlow {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      .navbar-nav {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 4px;
+      }
+
+      .navbar-nav .nav-link {
+        color: #fff !important;
+        font-weight: 500;
+        padding: 6px 10px;
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+      }
+
+      .navbar-nav .nav-link:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffc107 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(255, 193, 7, 0.25);
+      }
+
+      .navbar-nav .nav-link.active {
+        color: #ffc107 !important;
+        font-weight: 600;
+        background-image: linear-gradient(to right, #ffc107, #ff80ab);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .navbar-nav .logout-link {
+        color: #ffc107 !important;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .navbar-nav .logout-link:hover {
+        background: rgba(255, 193, 7, 0.12);
+        color: #ffe082 !important;
+      }
+
+      .navbar-text.user-name {
+        color: #fff;
+        font-weight: 500;
+        margin-left: 10px;
+        display: flex;
+        align-items: center;
+        opacity: 0.9;
+        white-space: nowrap;
+      }
+
+      .main-content {
+        margin-top: 80px;
+        min-height: calc(100vh - 160px);
+      }
+
+      footer.footer {
+        background: #212529;
+        color: #fff;
+      }
+      footer.footer a {
+        color: #ffc107;
+        text-decoration: underline;
+      }
+      footer.footer a:hover {
+        color: #ffe082;
+      }
+
+      @media (max-width: 1200px) {
+        .navbar-nav .nav-link {
+          padding: 5px 8px;
+          font-size: 0.9rem;
+          margin: 0 2px;
+        }
+      }
+      @media (max-width: 992px) {
+        .navbar-nav {
+          flex-wrap: wrap;
+          gap: 2px;
+        }
+        .navbar-nav .nav-link {
+          padding: 5px 10px;
+          font-size: 0.9rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body class="{% if not session.get('user') %}auth-page{% endif %}">
+    {% with messages = get_flashed_messages(with_categories=true) %} {% if
+    messages %}
+    <div
+      id="flashContainer"
+      class="position-fixed top-0 start-50 translate-middle-x mt-3"
+      style="z-index: 2000; width: auto; max-width: 600px"
+    >
+      {% for category, msg in messages %}
+      <div
+        class="alert alert-{{ category }} text-center rounded-pill shadow-sm mb-2 fade show auto-dismiss"
+        role="alert"
+        data-timeout="3000"
+        style="animation: fadeIn 0.4s ease"
+      >
+        {{ msg }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %} {% endwith %} {% if session.get('user') %}
+    <!-- Navbar -->
+    <nav
+      class="navbar navbar-expand-lg navbar-dark shadow-sm fixed-top bg-dark"
+    >
+      <div class="container">
+        <a
+          class="navbar-brand fw-bold d-flex align-items-center"
+          href="{% if session.get('role') == 'admin' %}{{ url_for('history') }}{% else %}{{ url_for('home') }}{% endif %}"
+        >
+          <span class="fs-4 me-2">❤️</span> CVD-App
+        </a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div
+          class="collapse navbar-collapse justify-content-end"
+          id="navbarNav"
+        >
+          <ul class="navbar-nav">
+            {% if session.get('role') == 'admin' %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='history' %}active{% endif %}"
+                href="{{ url_for('history') }}"
+                >Lịch sử</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='admin_manage_users' and request.args.get('type')=='doctor' %}active{% endif %}"
+                href="{{ url_for('admin_manage_users', type='doctor') }}"
+                >Quản lý bác sĩ</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='admin_manage_users' and request.args.get('type')=='patient' %}active{% endif %}"
+                href="{{ url_for('admin_manage_users', type='patient') }}"
+                >Quản lý bệnh nhân</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='admin_dashboard' %}active{% endif %}"
+                href="{{ url_for('admin_dashboard') }}"
+                >Thống kê hệ thống</a
+              >
+            </li>
+            {% else %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='home' %}active{% endif %}"
+                href="{{ url_for('home') }}"
+                >Trang chủ</a
+              >
+            </li>
+            {% if session.get('role') == 'patient' %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='tips' %}active{% endif %}"
+                href="{{ url_for('tips') }}"
+                >Kiến thức y tế</a
+              >
+            </li>
+            {% endif %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='diagnose' %}active{% endif %}"
+                href="{{ url_for('diagnose') }}"
+                >Chẩn đoán</a
+              >
+            </li>
+            {% if session.get('role') == 'doctor' %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='history' %}active{% endif %}"
+                href="{{ url_for('history') }}"
+                >Lịch sử</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='manage_accounts' %}active{% endif %}"
+                href="{{ url_for('manage_accounts') }}"
+                >Quản lý bệnh nhân</a
+              >
+            </li>
+            {% else %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='history' %}active{% endif %}"
+                href="{{ url_for('history') }}"
+                >Lịch sử chẩn đoán</a
+              >
+            </li>
+            {% endif %}
+            <li class="nav-item">
+              <a
+                class="nav-link {% if request.endpoint=='profile' %}active{% endif %}"
+                href="{{ url_for('profile') }}"
+                >Hồ sơ</a
+              >
+            </li>
+            {% endif %}
+            <li class="nav-item d-flex align-items-center">
+              <a
+                class="nav-link logout-link"
+                href="#"
+                data-bs-toggle="modal"
+                data-bs-target="#logoutModal"
+                >Đăng xuất</a
+              >
+              <span class="navbar-text user-name"
+                >| Xin chào, {{ session.get('user') }}</span
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    {% endif %}
+
+    <div class="{% if session.get('user') %}container main-content{% else %}main-content auth-content{% endif %}">
+      {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer text-center text-white py-3">
+      <div class="container">
+        <p class="mb-1">&copy; 2025 Ứng dụng Chẩn đoán Bệnh Tim Mạch</p>
+        <p class="mb-1">
+          Liên hệ:
+          <a href="mailto:thuckien76@gmail.com">thuckien76@gmail.com</a>
+        </p>
+        <p class="mb-1">
+          <i class="bi bi-telephone-fill"></i> Hotline:
+          <span class="fw-semibold">(+84) 0909 123 456</span>
+        </p>
+        <p class="mb-0">
+          <i class="bi bi-geo-alt-fill"></i> 140 Lê Trọng Tấn, Tân Phú, TP.HCM
+        </p>
+      </div>
+    </footer>
+
+    <!-- Modal Đăng xuất -->
+    <div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0 rounded-3">
+          <div class="modal-header bg-warning text-dark">
+            <h5 class="modal-title fw-bold">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i> Xác nhận đăng
+              xuất
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body text-center">
+            <p>Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?</p>
+          </div>
+          <div class="modal-footer justify-content-center">
+            <button
+              type="button"
+              class="btn btn-secondary px-4"
+              data-bs-dismiss="modal"
+            >
+              Hủy
+            </button>
+            <a
+              href="{{ url_for('logout') }}"
+              class="btn btn-warning px-4 text-dark fw-semibold"
+              >Đăng xuất</a
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Flash auto-hide -->
+    <style>
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes fadeOut {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+      }
+    </style>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".auto-dismiss").forEach((alertEl) => {
+          const timeout = parseInt(alertEl.dataset.timeout || "3000", 10);
+          setTimeout(() => {
+            alertEl.style.animation = "fadeOut 0.4s forwards";
+            setTimeout(() => alertEl.remove(), 450);
+          }, timeout);
+        });
+      });
+    </script>
+
+    <!-- Chat AI nổi + Gợi ý nhanh ngoài -->
+    {% if session.get('role') == 'patient' %}
+    <div id="chatBubble" class="chat-bubble">
+      <i class="bi bi-robot fs-3"></i>
+    </div>
+    <!-- Các nút gợi ý nổi cùng cấp -->
+    <div id="chatQuickMenu" class="chat-quick-menu">
+      <div class="quick-menu-header">
+        <button id="closeQuickMenu" class="quick-close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <button class="quick-btn" data-msg="Cách giảm huyết áp">
+        <i class="bi bi-heart-pulse"></i> Hạ huyết áp
+      </button>
+      <button class="quick-btn" data-msg="Ăn gì tốt cho tim mạch">
+        <i class="bi bi-bag-heart"></i> Ăn uống tốt
+      </button>
+      <button class="quick-btn" data-msg="Tập thể dục thế nào">
+        <i class="bi bi-activity"></i> Tập luyện
+      </button>
+    </div>
+
+    <div id="chatWindow" class="chat-window shadow-lg">
+      <div class="chat-header">
+        <div class="d-flex align-items-center">
+          <div class="ai-avatar me-2">
+            <i class="bi bi-heart-pulse-fill fs-5"></i>
+          </div>
+          <div>
+            <strong>Trợ lý CVD-AI</strong><br />
+            <small class="text-light opacity-75"
+              >Tư vấn sức khỏe tim mạch 💓</small
+            >
+          </div>
+        </div>
+        <button id="closeChat" class="btn-close btn-close-white"></button>
+      </div>
+
+      <div id="chatBody" class="chat-body">
+        <div class="text-center text-muted small mt-3">
+          👋 Xin chào! Tôi là <b>Trợ lý CVD-AI</b>. Bạn có thể hỏi tôi về:
+        </div>
+      </div>
+
+      <div class="chat-footer">
+        <form id="chatForm" class="d-flex">
+          <input
+            id="chatInput"
+            class="form-control rounded-pill me-2"
+            placeholder="Nhập câu hỏi..."
+            autocomplete="off"
+          />
+          <button class="btn btn-success rounded-pill px-3">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <style>
+      /* --- Nút chat chính --- */
+      .chat-bubble {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #00c853, #2ecc71);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        z-index: 2000;
+        transition: all 0.25s ease;
+      }
+      .chat-bubble:hover {
+        transform: scale(1.1);
+      }
+
+      /* --- Hộp chat --- */
+      .chat-window {
+        position: fixed;
+        bottom: 100px;
+        right: 25px;
+        width: 380px;
+        height: 500px;
+        border-radius: 20px;
+        background: #fefefe;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        z-index: 3000;
+      }
+      .chat-header {
+        background: linear-gradient(90deg, #00c853, #43a047);
+        color: white;
+        padding: 10px 16px;
+      }
+      .ai-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* --- Body & tin nhắn --- */
+      .chat-body {
+        flex-grow: 1;
+        padding: 10px 15px;
+        overflow-y: auto;
+        font-size: 0.95rem;
+      }
+      .sample-questions span {
+        display: inline-block;
+        background: #e8f5e9;
+        color: #2e7d32;
+        border-radius: 20px;
+        padding: 5px 12px;
+        margin: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background 0.3s ease;
+      }
+      .sample-questions span:hover {
+        background: #c8e6c9;
+      }
+      .msg-user,
+      .msg-ai {
+        margin: 6px 0;
+        display: flex;
+        align-items: flex-start;
+      }
+      .msg-user {
+        justify-content: flex-end;
+      }
+      .msg-user .bubble {
+        background: #00c853;
+        color: white;
+        border-radius: 18px 18px 4px 18px;
+      }
+      .msg-ai .bubble {
+        background: #eceff1;
+        color: #212529;
+        border-radius: 18px 18px 18px 4px;
+      }
+      .bubble {
+        padding: 8px 14px;
+        max-width: 80%;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+      }
+
+      /* --- Nút gợi ý nổi --- */
+      .chat-quick-menu {
+        position: fixed;
+        bottom: 100px;
+        right: 30px; /* đẩy sát hơn về phải */
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end; /* căn phải cho nút */
+        gap: 10px;
+        z-index: 2100;
+      }
+      .quick-menu-header {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+        margin-bottom: 2px;
+      }
+
+      .quick-close {
+        background: #00c853;
+        border: none;
+        color: #fff;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        transition: all 0.25s ease;
+      }
+
+      .quick-close:hover {
+        background: #009f45;
+        transform: rotate(90deg);
+      }
+
+      .quick-btn {
+        background: #fff;
+        color: #2e7d32;
+        border: 2px solid #00c853;
+        font-size: 0.9rem;
+        padding: 6px 14px;
+        border-radius: 20px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+      }
+
+      .quick-btn:hover {
+        background: #00c853;
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 200, 83, 0.4);
+      }
+
+      .quick-btn i {
+        font-size: 1rem;
+      }
+
+      @media (max-width: 480px) {
+        .chat-window {
+          width: 90%;
+          right: 5%;
+          height: 420px;
+        }
+      }
+      #restoreQuickMenu {
+        animation: fadeInUp 0.5s ease;
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const bubble = document.getElementById("chatBubble");
+        const windowEl = document.getElementById("chatWindow");
+        const closeBtn = document.getElementById("closeChat");
+        const form = document.getElementById("chatForm");
+        const input = document.getElementById("chatInput");
+        const chatBody = document.getElementById("chatBody");
+        const quickMenu = document.getElementById("chatQuickMenu");
+        const closeQuickMenu = document.getElementById("closeQuickMenu");
+
+        // KIỂM TRA TRẠNG THÁI LƯU (localStorage)
+        const quickMenuHidden =
+          localStorage.getItem("quickMenuHidden") === "true";
+
+        if (quickMenuHidden && quickMenu) {
+          quickMenu.style.display = "none";
+          showRestoreButton(); // Hiển thị nút "Hiện gợi ý lại"
+        }
+
+        // XỬ LÝ CHAT CƠ BẢN
+        bubble.addEventListener("click", () => {
+          windowEl.style.display = "flex";
+          bubble.style.display = "none";
+          loadChatHistory();
+        });
+        closeBtn.addEventListener("click", () => {
+          windowEl.style.display = "none";
+          bubble.style.display = "flex";
+        });
+
+        async function loadChatHistory() {
+          try {
+            const res = await fetch("/chat_ai_history");
+            const data = await res.json();
+            chatBody.innerHTML = "";
+            if (data.messages && data.messages.length > 0) {
+              data.messages.forEach((m) => {
+                chatBody.insertAdjacentHTML(
+                  "beforeend",
+                  `<div class='msg-user'><div class='bubble'>${m.user}</div></div>
+               <div class='msg-ai'><div class='bubble'>${m.ai}</div></div>`
+                );
+              });
+            } else {
+              chatBody.innerHTML =
+                "<div class='text-center text-muted small mt-3'>👋 Xin chào! Tôi là <b>Trợ lý CVD-AI</b>. Hãy hỏi tôi về tim mạch nhé 💓</div>";
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+          } catch (e) {
+            console.error("Lỗi tải lịch sử:", e);
+          }
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const text = input.value.trim();
+          if (!text) return;
+          chatBody.insertAdjacentHTML(
+            "beforeend",
+            `<div class='msg-user'><div class='bubble'>${text}</div></div>`
+          );
+          input.value = "";
+          chatBody.scrollTop = chatBody.scrollHeight;
+
+          const typing = document.createElement("div");
+          typing.className = "msg-ai";
+          typing.innerHTML =
+            "<div class='bubble'><i>AI đang trả lời...</i></div>";
+          chatBody.appendChild(typing);
+          chatBody.scrollTop = chatBody.scrollHeight;
+
+          try {
+            const res = await fetch("/chat_ai_api", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: text }),
+            });
+            const data = await res.json();
+            typing.remove();
+            chatBody.insertAdjacentHTML(
+              "beforeend",
+              `<div class='msg-ai'><div class='bubble'>${data.reply}</div></div>`
+            );
+            chatBody.scrollTop = chatBody.scrollHeight;
+          } catch {
+            typing.innerHTML =
+              "<div class='bubble text-danger'>⚠️ Lỗi kết nối đến AI.</div>";
+          }
+        });
+
+        // XỬ LÝ NÚT GỢI Ý NHANH
+        document.querySelectorAll(".quick-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const text = btn.dataset.msg;
+            if (windowEl.style.display === "none" || !windowEl.style.display) {
+              windowEl.style.display = "flex";
+              bubble.style.display = "none";
+            }
+            input.value = text;
+            input.focus();
+          });
+        });
+
+        // ẨN VĨNH VIỄN CÁC GỢI Ý
+        if (closeQuickMenu) {
+          closeQuickMenu.addEventListener("click", () => {
+            quickMenu.style.display = "none";
+            localStorage.setItem("quickMenuHidden", "true"); // lưu trạng thái
+            showRestoreButton();
+          });
+        }
+
+        // HIỂN THỊ LẠI GỢI Ý (nút nhỏ nổi)
+        function showRestoreButton() {
+          const existing = document.getElementById("restoreQuickMenu");
+          if (existing) return; // tránh trùng
+
+          const restoreBtn = document.createElement("button");
+          restoreBtn.id = "restoreQuickMenu";
+          restoreBtn.innerHTML = "📎 Hiện gợi ý lại";
+          restoreBtn.className = "btn btn-light border position-fixed";
+          restoreBtn.style.cssText =
+            "bottom:100px; right:25px; z-index:2200; font-size:0.85rem; border-radius:20px; padding:4px 12px; box-shadow:0 2px 6px rgba(0,0,0,0.2);";
+
+          restoreBtn.addEventListener("click", () => {
+            quickMenu.style.display = "flex";
+            localStorage.setItem("quickMenuHidden", "false");
+            restoreBtn.remove();
+          });
+
+          document.body.appendChild(restoreBtn);
+        }
+      });
+    </script>
+
+    {% endif %}
+
+    <script>
+      window.addEventListener("scroll", () => {
+        const navbar = document.querySelector(".navbar");
+        if (window.scrollY > 30) navbar.classList.add("scrolled");
+        else navbar.classList.remove("scrolled");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+{% extends 'base.html' %} {% block content %}
+
+<div class="login-wrapper">
+  <div class="card login-card shadow-lg p-4">
+    <!-- Tiêu đề -->
+    <div class="text-center mb-3">
+      <div class="logo-circle mb-3">
+        <i class="bi bi-person-plus-fill fs-1 text-success"></i>
+      </div>
+      <h2 class="fw-bold text-gradient">Đăng ký tài khoản</h2>
+      <p class="text-muted">
+        Vui lòng nhập thông tin bên dưới để tạo tài khoản
+      </p>
+    </div>
+
+    <!-- 🔔 Flash messages -->
+    <!-- Form đăng ký -->
+    <form method="post">
+      <!-- Họ tên -->
+      <div class="mb-3 input-group rounded-pill shadow-sm">
+        <span class="input-group-text"
+          ><i class="bi bi-person-fill text-primary"></i
+        ></span>
+        <input
+          type="text"
+          name="ho_ten"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Họ và tên"
+          required
+        />
+      </div>
+
+      <!-- Giới tính -->
+      <div class="mb-3 input-group rounded-pill shadow-sm">
+        <span class="input-group-text"
+          ><i class="bi bi-gender-ambiguous text-primary"></i
+        ></span>
+        <select
+          name="gioi_tinh"
+          class="form-select border-0 rounded-end rounded-pill"
+          required
+        >
+          <option value="">-- Chọn giới tính --</option>
+          <option value="Nam">Nam</option>
+          <option value="Nữ">Nữ</option>
+        </select>
+      </div>
+
+      <!-- Ngày sinh -->
+      <div class="mb-3 input-group rounded-pill shadow-sm">
+        <span class="input-group-text"
+          ><i class="bi bi-calendar-date text-primary"></i
+        ></span>
+        <input
+          type="date"
+          name="ngay_sinh"
+          class="form-control border-0 rounded-end rounded-pill"
+          max="{{ today }}"
+          required
+        />
+      </div>
+
+      <!-- Email -->
+      <div class="mb-3 input-group rounded-pill shadow-sm">
+        <span class="input-group-text"
+          ><i class="bi bi-envelope-fill text-primary"></i
+        ></span>
+        <input
+          type="email"
+          name="email"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Email"
+          required
+        />
+      </div>
+
+      <!-- Mật khẩu -->
+      <div class="mb-3 input-group rounded-pill shadow-sm position-relative password-toggle-group overflow-hidden">
+        <span class="input-group-text"
+          ><i class="bi bi-lock-fill text-primary"></i
+        ></span>
+        <input
+          type="password"
+          name="mat_khau"
+          id="pwInput"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Mật khẩu (ít nhất 8 ký tự, có ký tự đặc biệt, chữ hoa và số)"
+          required
+        />
+        <button
+          class="btn btn-link border-0 text-muted toggle-password"
+          type="button"
+          data-target="pwInput"
+          aria-label="Ẩn/hiện mật khẩu"
+        >
+          <i class="bi bi-eye-slash-fill"></i>
+        </button>
+      </div>
+
+      <!-- Nhập lại mật khẩu -->
+      <div class="mb-4 input-group rounded-pill shadow-sm position-relative password-toggle-group overflow-hidden">
+        <span class="input-group-text"
+          ><i class="bi bi-shield-lock-fill text-primary"></i
+        ></span>
+        <input
+          type="password"
+          name="mat_khau_confirm"
+          id="pwConfirmInput"
+          class="form-control border-0 rounded-end rounded-pill"
+          placeholder="Nhập lại mật khẩu"
+          required
+        />
+        <button
+          class="btn btn-link border-0 text-muted toggle-password"
+          type="button"
+          data-target="pwConfirmInput"
+          aria-label="Ẩn/hiện mật khẩu xác nhận"
+        >
+          <i class="bi bi-eye-slash-fill"></i>
+        </button>
+      </div>
+
+      <!-- Hiển thị độ mạnh mật khẩu -->
+      <div class="text-center mb-3">
+        <small id="pwStrength" class="fw-semibold"></small>
+      </div>
+
+      <!-- Nút đăng ký -->
+      <button
+        type="submit"
+        class="btn btn-success w-100 py-2 rounded-pill fw-semibold shadow-sm"
+      >
+        Đăng ký
+      </button>
+
+      {% if social_google_enabled %}
+      <div class="mt-3 border-top pt-3">
+        <p class="text-center text-muted small mb-3">Hoặc tiếp tục với</p>
+        <div class="d-grid gap-2">
+          <a
+            href="{{ url_for('oauth_login', provider='google') }}"
+            class="btn btn-outline-danger rounded-pill fw-semibold"
+          >
+            <i class="bi bi-google me-2"></i> Google
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <p class="text-center mt-3 small text-muted">
+        Đã có tài khoản?
+        <a
+          href="{{ url_for('login') }}"
+          class="text-decoration-none fw-semibold"
+          >Đăng nhập</a
+        >
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- Script kiểm tra độ mạnh mật khẩu -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("pwInput");
+    const label = document.getElementById("pwStrength");
+
+    input.addEventListener("input", () => {
+      const val = input.value;
+      let s = 0;
+      if (val.length >= 8) s++;
+      if (/[A-Z]/.test(val)) s++;
+      if (/\d/.test(val)) s++;
+      if (/[@$!%*?&]/.test(val)) s++;
+
+      if (!val) {
+        label.innerHTML = "";
+      } else if (s <= 1) {
+        label.innerHTML = "🔴 Mật khẩu yếu";
+        label.className = "text-danger fw-semibold";
+      } else if (s === 2 || s === 3) {
+        label.innerHTML = "🟡 Mật khẩu trung bình";
+        label.className = "text-warning fw-semibold";
+      } else {
+        label.innerHTML = "🟢 Mật khẩu mạnh";
+        label.className = "text-success fw-semibold";
+      }
+    });
+
+    document.querySelectorAll(".toggle-password").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = document.getElementById(btn.dataset.target);
+        if (!target) return;
+        const isHidden = target.type === "password";
+        target.type = isHidden ? "text" : "password";
+        const icon = btn.querySelector("i");
+        if (icon) {
+          icon.classList.toggle("bi-eye-fill", isHidden);
+          icon.classList.toggle("bi-eye-slash-fill", !isHidden);
+        }
+      });
+    });
+  });
+</script>
+
+
+{% endblock %}

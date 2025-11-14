@@ -1,0 +1,366 @@
+{% extends 'base.html' %} {% block content %}
+
+<!-- TIÊU ĐỀ TRANG -->
+<section class="text-center mb-3 pt-3">
+  <h2 class="fw-bold text-gradient">🫀 Ứng dụng chẩn đoán bệnh tim mạch</h2>
+  <p class="text-muted mt-0 mx-auto" style="max-width: 640px">
+    Hỗ trợ bác sĩ và người dùng dự đoán nguy cơ tim mạch, phân tích dữ liệu sức
+    khỏe và đưa ra khuyến nghị y khoa chính xác.
+  </p>
+</section>
+
+<!-- GIỚI THIỆU -->
+<section class="container mb-5 position-relative overflow-hidden">
+  <div class="soft-bg"></div>
+  <div
+    class="row align-items-center rounded-4 shadow-sm bg-white p-4 intro-card"
+    data-aos="fade-up"
+  >
+    <div class="col-lg-6 text-center mb-3 mb-lg-0">
+      <img
+        src="{{ url_for('static', filename='images/heart-health.webp') }}"
+        alt="Heart Health"
+        class="img-fluid rounded-4 shadow-lg intro-img"
+        loading="lazy"
+      />
+    </div>
+    <div class="col-lg-6 ps-lg-4">
+      <h4 class="fw-semibold text-primary mb-3">
+        💡 Vì sao nên theo dõi sức khỏe tim mạch?
+      </h4>
+      <p class="text-secondary text-justify mb-3">
+        Bệnh tim mạch là nguyên nhân tử vong hàng đầu trên toàn cầu. Việc phát
+        hiện sớm <b>huyết áp cao</b>, <b>rối loạn mỡ máu</b>,
+        <b>thừa cân</b> hay <b>thói quen xấu</b> giúp ngăn ngừa biến chứng nguy
+        hiểm như đột quỵ hoặc suy tim.
+      </p>
+      <p class="text-secondary text-justify mb-4">
+        Ứng dụng <b>CVD-App</b> sử dụng công nghệ <b>AI – Machine Learning</b>
+        để phân tích dữ liệu sức khỏe, cung cấp kết quả dự đoán nguy cơ và lời
+        khuyên y khoa phù hợp từng người.
+      </p>
+
+      <a
+        href="{{ url_for('diagnose') }}"
+        class="btn btn-gradient px-4 py-2 shadow-sm"
+      >
+        🩺 Bắt đầu chẩn đoán
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDER -->
+<section id="heroSection" class="mb-5" data-aos="zoom-in">
+  <div
+    id="heroCarousel"
+    class="carousel slide carousel-fade"
+    data-bs-ride="carousel"
+    data-bs-interval="4000"
+  >
+    <div class="carousel-inner rounded-4 shadow-lg">
+      <!-- Slide 1 -->
+      <div class="carousel-item active" data-bs-interval="4000">
+        <img
+          src="{{ url_for('static', filename='images/slide1.webp') }}"
+          class="d-block w-100 hero-img lazyload"
+          alt="Healthy Heart"
+          loading="eager"
+        />
+        <div class="carousel-overlay"></div>
+        <div class="carousel-caption d-none d-md-block text-center">
+          <h2 class="fw-bold text-gradient display-6">
+            🫀 Bảo vệ trái tim – Bảo vệ cuộc sống
+          </h2>
+        </div>
+      </div>
+
+      <!-- Slide 2 -->
+      <div class="carousel-item" data-bs-interval="4000">
+        <img
+          src="{{ url_for('static', filename='images/slide2.webp') }}"
+          class="d-block w-100 hero-img lazyload"
+          alt="Healthy Lifestyle"
+          loading="lazy"
+        />
+        <div class="carousel-overlay"></div>
+        <div class="carousel-caption d-none d-md-block text-center">
+          <h2 class="fw-bold text-gradient display-6">
+            💪 Sống khỏe – Sống an vui
+          </h2>
+        </div>
+      </div>
+
+      <!-- Slide 3 -->
+      <div class="carousel-item" data-bs-interval="4000">
+        <img
+          src="{{ url_for('static', filename='images/slide3.webp') }}"
+          class="d-block w-100 hero-img lazyload"
+          alt="AI Analysis"
+          loading="lazy"
+        />
+        <div class="carousel-overlay"></div>
+        <div class="carousel-caption d-none d-md-block text-center">
+          <h2 class="fw-bold text-gradient display-6">
+            🤖 Phân tích thông minh từ AI
+          </h2>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <button
+      class="carousel-control-prev"
+      type="button"
+      data-bs-target="#heroCarousel"
+      data-bs-slide="prev"
+    >
+      <span class="carousel-control-prev-icon"></span>
+    </button>
+    <button
+      class="carousel-control-next"
+      type="button"
+      data-bs-target="#heroCarousel"
+      data-bs-slide="next"
+    >
+      <span class="carousel-control-next-icon"></span>
+    </button>
+  </div>
+</section>
+
+<!-- TIN TỨC NỔI BẬT -->
+<section class="container pb-5" data-aos="fade-up">
+  <div class="text-center mb-4">
+    <h4 class="fw-bold text-primary">📰 Những điều có thể bạn đã biết</h4>
+  </div>
+
+  <div class="row g-4">
+    {% set news_items = [ ('news1.jpg', 'Lối sống lành mạnh giúp giảm nguy cơ
+    tim mạch', 'Duy trì cân nặng hợp lý, tập thể dục đều đặn và ngủ đủ giấc giúp
+    giảm nguy cơ mắc bệnh tim mạch tới 50%.', 'text-primary'), ('news2.webp',
+    'Chế độ ăn uống khoa học', 'Ăn nhiều rau xanh, trái cây tươi và cá biển giúp
+    ổn định huyết áp, giảm cholesterol, bảo vệ tim mạch khỏe mạnh.',
+    'text-success'), ('news3.png', 'Khám sức khỏe định kỳ', 'Khám tim mạch định
+    kỳ giúp phát hiện sớm tăng huyết áp, tiểu đường hoặc rối loạn lipid máu –
+    yếu tố nguy cơ hàng đầu gây bệnh tim.', 'text-danger') ] %} {% for img,
+    title, desc, color in news_items %}
+    <div class="col-md-4">
+      <div class="card h-100 border-0 shadow-sm rounded-4 news-card">
+        <div class="overflow-hidden rounded-top-4">
+          <img
+            src="{{ url_for('static', filename='images/' + img) }}"
+            class="card-img-top"
+            alt="{{ title }}"
+            loading="lazy"
+          />
+        </div>
+        <div class="card-body">
+          <h6 class="fw-semibold {{ color }} mb-2">{{ title }}</h6>
+          <p class="card-text text-muted text-justify small">{{ desc }}</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="py-5 bg-light" data-aos="fade-up">
+  <div class="container text-center">
+    <h4 class="fw-bold text-gradient mb-4">💬 Ý kiến từ người dùng & bác sĩ</h4>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 shadow-sm bg-white">
+          <i class="bi bi-heart-pulse-fill fs-2 text-danger mb-2"></i>
+          <p class="text-muted fst-italic">
+            "Ứng dụng CVD-App giúp tôi theo dõi sức khỏe bệnh nhân nhanh chóng
+            và hiệu quả hơn rất nhiều."
+          </p>
+          <h6 class="fw-semibold text-primary">BS. Nguyễn Văn A</h6>
+          <p class="small text-secondary">Bệnh viện Tim Tâm Đức</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 shadow-sm bg-white">
+          <i class="bi bi-person-heart fs-2 text-success mb-2"></i>
+          <p class="text-muted fst-italic">
+            "Giao diện thân thiện, dễ hiểu. Tôi có thể biết ngay mức nguy cơ của
+            mình chỉ trong vài giây!"
+          </p>
+          <h6 class="fw-semibold text-success">Nguyễn Thị Hồng</h6>
+          <p class="small text-secondary">Người dùng cá nhân</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 shadow-sm bg-white">
+          <i class="bi bi-robot fs-2 text-primary mb-2"></i>
+          <p class="text-muted fst-italic">
+            "AI của CVD-App hoạt động tương đối chính xác. Đây là hướng đi tương
+            lai của y học số."
+          </p>
+          <h6 class="fw-semibold text-primary">TS. Lê Hữu Khoa</h6>
+          <p class="small text-secondary">Chuyên gia AI Y tế</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PARTNERS -->
+<section class="py-5" data-aos="zoom-in">
+  <div class="container text-center">
+    <h4 class="fw-bold text-gradient mb-4">🤝 Đối tác & Công nghệ sử dụng</h4>
+    <div class="row justify-content-center g-4">
+      {% set partners = [ ('flask.svg', 'Flask'), ('python.svg', 'Python'),
+      ('bootstrap.svg', 'Bootstrap'), ('xgboost.svg', 'XGBoost'), ('mysql.svg',
+      'MySQL') ] %} {% for img, name in partners %}
+      <div class="col-4 col-md-2">
+        <div class="partner-card p-3 bg-white rounded-4 shadow-sm">
+          <img
+            src="{{ url_for('static', filename='images/' + img) }}"
+            alt="{{ name }}"
+            class="img-fluid mb-2"
+            loading="lazy"
+          />
+          <p class="small text-secondary mb-0">{{ name }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- STYLE -->
+<style>
+  body {
+    background-color: #f8faff;
+    font-family: "Poppins", sans-serif;
+    color: #333;
+    line-height: 1.7;
+  }
+
+  .text-gradient {
+    background: linear-gradient(45deg, #d6336c, #6f42c1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .soft-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        circle at top left,
+        rgba(255, 107, 107, 0.08),
+        transparent 60%
+      ),
+      radial-gradient(
+        circle at bottom right,
+        rgba(111, 66, 193, 0.08),
+        transparent 60%
+      );
+    z-index: 0;
+  }
+
+  .intro-card {
+    border-left: 4px solid #d6336c;
+    background: #fff;
+    position: relative;
+    z-index: 1;
+  }
+
+  .intro-img {
+    max-height: 360px;
+    transition: transform 0.4s ease;
+  }
+
+  .intro-img:hover {
+    transform: scale(1.04);
+  }
+
+  .btn-gradient {
+    background: linear-gradient(90deg, #ff6b6b, #d6336c);
+    border: none;
+    color: #fff;
+    font-weight: 500;
+    border-radius: 30px;
+    transition: all 0.3s ease-in-out;
+  }
+
+  .btn-gradient:hover {
+    background: linear-gradient(45deg, #d6336c, #6f42c1);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(214, 51, 108, 0.3);
+  }
+
+  .news-card {
+    transition: all 0.3s ease;
+  }
+
+  .news-card img {
+    height: 220px;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+
+  .news-card:hover img {
+    transform: scale(1.08);
+  }
+
+  .news-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .carousel-caption {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 900px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .hero-img {
+    height: 450px;
+    object-fit: cover;
+    opacity: 0.98;
+  }
+
+  @media (max-width: 768px) {
+    .hero-img {
+      height: 320px;
+    }
+    .intro-card {
+      text-align: center;
+    }
+    .carousel-caption {
+      top: 45%;
+      white-space: normal;
+    }
+  }
+
+  .partner-card img {
+    max-height: 50px;
+    opacity: 0.9;
+    transition: transform 0.3s ease;
+  }
+
+  .partner-card:hover img {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+</style>
+
+<!-- (hiệu ứng cuộn nhẹ) -->
+<link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+<script>
+  AOS.init({
+    duration: 800,
+    once: true,
+  });
+</script>
+
+{% endblock %}
