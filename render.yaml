@@ -1,0 +1,28 @@
+services:
+  - name: cardio-app
+    type: web
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_CLIENT_ID_SEND
+        sync: false
+      - key: GMAIL_CLIENT_SECRET_SEND
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: GMAIL_SENDER
+        sync: false
+      - key: DEFAULT_SOCIAL_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        sync: false

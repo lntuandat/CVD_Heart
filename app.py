@@ -2325,4 +2325,6 @@ def chat_ai_history():
 # Main
 # ==========================================
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", os.getenv("FLASK_RUN_PORT", "5000")))
+    print(f"Server running at: http://0.0.0.0:{port}/")
+    app.run(host="0.0.0.0", port=port)
