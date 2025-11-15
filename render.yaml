@@ -1,4 +1,4 @@
-﻿services:
+services:
   - name: cardio-app
     type: web
     env: python
