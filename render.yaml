@@ -15,9 +15,11 @@ services:
         sync: false
 
       - key: GOOGLE_CLIENT_ID
+        value: 306708099460-j20je8j9okvob2fpgdq4v7ta8s2robd5.apps.googleusercontent.com
         sync: false
 
       - key: GOOGLE_CLIENT_SECRET
+        value: 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
         sync: false
 
       - key: GMAIL_CLIENT_ID_SEND
