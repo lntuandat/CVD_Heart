@@ -4,15 +4,13 @@ services:
     runtime: python
     plan: free
     pythonVersion: 3.11.9
-
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
-
     envVars:
       - key: SUPABASE_URL
         value: postgresql://postgres.bpcrrwgpwloehbnmmehn:lntuandat123@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
         sync: false
-
+ 
       - key: SUPABASE_KEY
         sync: false
 
