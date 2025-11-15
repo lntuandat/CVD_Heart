@@ -134,7 +134,8 @@ def get_connection():
     parsed_url = urlparse(DATABASE_URL)
     
     # Tạo bối cảnh SSL
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    ssl_context = ssl.create_default_context()
+    ssl_context.load_verify_locations(cafile=certifi.where())
     
     # Trả về kết nối pg8000 DB-API
     return pg8000.connect(
