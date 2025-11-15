@@ -120,38 +120,34 @@ def send_email(to_email: str, subject: str, html_body: str):
 # HÀM KẾT NỐI (dùng pg8000 và SUPABASE_URL)
 # ==========================================
 def get_connection():
-    """Kết nối tới PostgreSQL (Supabase) sử dụng pg8000."""
-    DATABASE_URL = os.getenv("SUPABASE_URL")
-    if not DATABASE_URL:
+    """Ket noi Supabase PostgreSQL qua pg8000 (toi uu cho Render pooler)."""
+    database_url = os.getenv("SUPABASE_URL")
+    if not database_url:
         raise ValueError("SUPABASE_URL is not set in the environment variables.")
-    
-    # SSL là bắt buộc với Supabase
-    if "sslmode=" not in DATABASE_URL:
-        separator = "?" if "?" not in DATABASE_URL else "&"
-        DATABASE_URL += f"{separator}sslmode=require"
-    
-    # Phân tích URL
-    parsed_url = urlparse(DATABASE_URL)
-    
-    # Tạo bối cảnh SSL
-    ssl_context = ssl.create_default_context()
-    ssl_context.load_verify_locations(cafile=certifi.where())
-    
-    # Trả về kết nối pg8000 DB-API
+
+    parsed = urlparse(database_url)
+
+    # Pooler Supabase tren Render Free dung self-signed -> bo verify SSL
+    ssl_context = ssl.SSLContext()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+
     return pg8000.connect(
-        user=parsed_url.username,
-        password=parsed_url.password,
-        host=parsed_url.hostname,
-        port=parsed_url.port,
-        database=parsed_url.path[1:],  # Bỏ dấu '/' ở đầu
-        ssl_context=ssl_context
+        user=parsed.username,
+        password=parsed.password,
+        host=parsed.hostname,
+        port=parsed.port,
+        database=parsed.path.lstrip("/"),
+        ssl_context=ssl_context,
     )
 
-@app.context_processor
-def inject_social_flags():
-    return {
-        "social_google_enabled": SOCIAL_PROVIDERS.get("google", False),
-    }
+# Quick health-check: log ngay khi app khởi động xem DB kết nối được không
+try:
+    _conn = get_connection()
+    _conn.close()
+    app.logger.info("DB CONNECT OK")
+except Exception as exc:
+    app.logger.error("DB CONNECT ERROR: %s", exc)
 
 # ==========================================
 # Cấu hình Gemini AI
