@@ -1,5 +1,6 @@
 services:
   - name: cardio-app
+    pythonVersion: python-3.11.9
     type: web
     env: python
     plan: free
