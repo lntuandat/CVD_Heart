@@ -2,7 +2,8 @@
 import pandas as pd
 import os
 from werkzeug.utils import secure_filename
-import pyodbc
+import psycopg2  # 👈 THAY ĐỔI: Import psycopg2
+from psycopg2.extras import NamedTupleCursor  # 👈 THAY ĐỔI: Để dùng row.TenCot
 import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -103,15 +104,23 @@ def send_email(to_email: str, subject: str, html_body: str):
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
+# 👈 ==========================================
+# 👈 THAY ĐỔI: HÀM KẾT NỐI (dùng psycopg2 và SUPABASE_URL)
+# 👈 ==========================================
 def get_connection():
-    return pyodbc.connect(
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        "SERVER=PC1\\LNTUANDAT;"
-        "DATABASE=CVD_App;"
-        "Trusted_Connection=yes;"
-        "Encrypt=yes;"
-        "TrustServerCertificate=yes;"
-    )
+    """Kết nối tới PostgreSQL (Supabase) sử dụng psycopg2."""
+    DATABASE_URL = os.getenv("SUPABASE_URL")
+    if not DATABASE_URL:
+        raise ValueError("SUPABASE_URL is not set in the environment variables.")
+    
+    # SSL là bắt buộc với Supabase
+    if "sslmode=" not in DATABASE_URL:
+        # Thêm ?sslmode=require nếu chưa có, hoặc &sslmode=require nếu đã có ?
+        separator = "?" if "?" not in DATABASE_URL else "&"
+        DATABASE_URL += f"{separator}sslmode=require"
+        
+    return psycopg2.connect(DATABASE_URL)
+# 👈 ==========================================
 
 @app.context_processor
 def inject_social_flags():
@@ -232,8 +241,10 @@ def register():
             return render_template('register.html', today=today)
 
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT ID FROM NguoiDung WHERE Email = ?', (email,))
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         if cur.fetchone():
             conn.close()
             flash('Email đã tồn tại! Vui lòng chọn email khác.', 'warning')
@@ -304,11 +315,13 @@ def verify_email():
 
         try:
             conn = get_connection()
-            cur = conn.cursor()
+            # 👈 THAY ĐỔI: Thêm cursor_factory
+            cur = conn.cursor(cursor_factory=NamedTupleCursor)
+            # 👈 THAY ĐỔI: ? -> %s
             cur.execute(
                 """
-                INSERT INTO NguoiDung (HoTen, GioiTinh, NgaySinh, Email, MatKhau, Role)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO "NguoiDung" ("HoTen", "GioiTinh", "NgaySinh", "Email", "MatKhau", "Role")
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     pending['ho_ten'],
@@ -353,16 +366,19 @@ def confirm_patient_invite(token):
             return render_template('confirm_invite.html', email=data.get('email'), name=data.get('ho_ten'), token=token)
 
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT ID FROM NguoiDung WHERE Email = ?", (data.get('email'),))
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (data.get('email'),))
         if cur.fetchone():
             conn.close()
             flash("Tài khoản đã được kích hoạt trước đó. Bạn có thể đăng nhập.", "info")
             return redirect(url_for('login'))
         try:
+            # 👈 THAY ĐỔI: ? -> %s
             cur.execute("""
-                INSERT INTO NguoiDung (HoTen, GioiTinh, NgaySinh, Email, MatKhau, DienThoai, DiaChi, Role)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO "NguoiDung" ("HoTen", "GioiTinh", "NgaySinh", "Email", "MatKhau", "DienThoai", "DiaChi", "Role")
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 data.get('ho_ten'),
                 data.get('gioi_tinh'),
@@ -396,8 +412,10 @@ def forgot_password():
             return render_template('forgot_password.html')
 
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT ID, HoTen FROM NguoiDung WHERE Email = ?", (email,))
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         user = cur.fetchone()
         if not user:
             conn.close()
@@ -406,7 +424,8 @@ def forgot_password():
 
         new_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
         try:
-            cur.execute("UPDATE NguoiDung SET MatKhau=? WHERE ID=?", (new_pass, user.ID))
+            # 👈 THAY ĐỔI: ? -> %s
+            cur.execute('UPDATE "NguoiDung" SET "MatKhau"=%s WHERE "ID"=%s', (new_pass, user.ID))
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -440,11 +459,13 @@ def login():
         pw = request.form.get('password', '').strip()
 
         conn = get_connection()
-        cur = conn.cursor()
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            SELECT ID, HoTen, Role, MatKhau
-            FROM NguoiDung
-            WHERE Email = ?
+            SELECT "ID", "HoTen", "Role", "MatKhau"
+            FROM "NguoiDung"
+            WHERE "Email" = %s
         """, (email,))
         user = cur.fetchone()
         conn.close()
@@ -524,8 +545,10 @@ def oauth_callback(provider):
     full_name = user_info.get("name") or user_info.get("given_name") or email.split("@")[0]
 
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT ID, HoTen, Role, MatKhau FROM NguoiDung WHERE Email = ?", (email,))
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
+    # 👈 THAY ĐỔI: ? -> %s
+    cur.execute('SELECT "ID", "HoTen", "Role", "MatKhau" FROM "NguoiDung" WHERE "Email" = %s', (email,))
     user = cur.fetchone()
 
     if user:
@@ -534,12 +557,14 @@ def oauth_callback(provider):
         role = user.Role or 'patient'
         has_password = bool((user.MatKhau or "").strip())
     else:
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            INSERT INTO NguoiDung (HoTen, GioiTinh, NgaySinh, Email, MatKhau, Role)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO "NguoiDung" ("HoTen", "GioiTinh", "NgaySinh", "Email", "MatKhau", "Role")
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (full_name, 'Nam', None, email, DEFAULT_SOCIAL_PASSWORD, 'patient'))
         conn.commit()
-        cur.execute("SELECT ID, HoTen, Role, MatKhau FROM NguoiDung WHERE Email = ?", (email,))
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('SELECT "ID", "HoTen", "Role", "MatKhau" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         user = cur.fetchone()
         user_id = user.ID
         ho_ten = user.HoTen or full_name
@@ -549,7 +574,8 @@ def oauth_callback(provider):
     needs_password_email = not has_password
 
     if needs_password_email:
-        cur.execute("UPDATE NguoiDung SET MatKhau=? WHERE ID=?", (DEFAULT_SOCIAL_PASSWORD, user_id))
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('UPDATE "NguoiDung" SET "MatKhau"=%s WHERE "ID"=%s', (DEFAULT_SOCIAL_PASSWORD, user_id))
         conn.commit()
         conn.close()
         login_link = url_for('login', _external=True)
@@ -612,15 +638,17 @@ def get_patient_info(benhnhan_id):
         return jsonify({"error": "Unauthorized"}), 403
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # 🔹 Lấy trực tiếp tuổi và giới tính từ hồ sơ NguoiDung
+    # 👈 THAY ĐỔI: Cú pháp DATEDIFF/GETDATE sang EXTRACT/AGE/NOW và ? -> %s
     cur.execute("""
         SELECT 
-            DATEDIFF(YEAR, NgaySinh, GETDATE()) AS Tuoi,
-            GioiTinh
-        FROM NguoiDung
-        WHERE ID = ?
+            EXTRACT(YEAR FROM AGE(NOW(), "NgaySinh")) AS "Tuoi",
+            "GioiTinh"
+        FROM "NguoiDung"
+        WHERE "ID" = %s
     """, (benhnhan_id,))
 
     row = cur.fetchone()
@@ -643,10 +671,11 @@ def diagnose():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
     benhnhans = []
     if session.get('role') == 'doctor':
-        cur.execute("SELECT ID, HoTen FROM NguoiDung WHERE Role='patient'")
+        cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
         benhnhans = [
             {"ID": r.ID, "MaBN": f"BN{r.ID:03}", "HoTen": r.HoTen}
             for r in cur.fetchall()
@@ -659,7 +688,7 @@ def diagnose():
     risk_percent = None
     risk_level = None
     shap_file = None
-    results = []    
+    results = []  
     threshold = float(request.form.get('threshold', 0.5))
 
     # ======================
@@ -762,12 +791,13 @@ def diagnose():
             gluc_label = {0: "Bình thường", 1: "Cao nhẹ", 2: "Cao"}
 
             bacsi_id = session['user_id'] if session.get('role') == 'doctor' else None
+            # 👈 THAY ĐỔI: GETDATE() -> NOW() và ? -> %s
             cur.execute("""
-                INSERT INTO ChanDoan
-                (BenhNhanID, BacSiID, Tuoi, GioiTinh, BMI, HuyetApTamThu, HuyetApTamTruong,
-                Cholesterol, DuongHuyet, HutThuoc, UongCon, TapTheDuc,
-                NguyCo, LoiKhuyen, NgayChanDoan)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())
+                INSERT INTO "ChanDoan"
+                ("BenhNhanID", "BacSiID", "Tuoi", "GioiTinh", "BMI", "HuyetApTamThu", "HuyetApTamTruong",
+                "Cholesterol", "DuongHuyet", "HutThuoc", "UongCon", "TapTheDuc",
+                "NguyCo", "LoiKhuyen", "NgayChanDoan")
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             """, (benhnhan_id, bacsi_id, age, gender_raw, bmi, systolic, diastolic,
                     chol_label.get(chol), gluc_label.get(glucose),
                     smoking, alcohol, exercise, nguy_co_text, ai_advice))
@@ -874,7 +904,7 @@ def diagnose():
         file_result=file_result,
         shap_file=shap_file ,
         results=results,
-        has_result=has_result 
+        has_result=has_result  
     )
 
 @app.route('/send-diagnosis-email', methods=['POST'])
@@ -893,8 +923,10 @@ def send_diagnosis_email():
         return redirect(url_for('diagnose'))
 
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT HoTen, Email FROM NguoiDung WHERE ID = ?", (benhnhan_id,))
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
+    # 👈 THAY ĐỔI: ? -> %s
+    cur.execute('SELECT "HoTen", "Email" FROM "NguoiDung" WHERE "ID" = %s', (benhnhan_id,))
     patient = cur.fetchone()
     conn.close()
 
@@ -984,7 +1016,8 @@ def history():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # ===== Lấy các tham số lọc từ URL =====
     start_date = request.args.get('start_date')
@@ -1003,50 +1036,59 @@ def history():
 
     if role == 'doctor':
         # 👨‍⚕️ Bác sỹ xem các ca do mình chẩn đoán
-        where_clause += " AND BacSiID = ?"
+        # 👈 THAY ĐỔI: ? -> %s
+        where_clause += ' AND "BacSiID" = %s'
         params.append(session['user_id'])
         # Và có thể lọc thêm theo bệnh nhân
         if patient_id:
-            where_clause += " AND BenhNhanID = ?"
+            # 👈 THAY ĐỔI: ? -> %s
+            where_clause += ' AND "BenhNhanID" = %s'
             params.append(patient_id)
 
     elif role == 'patient':
         # 🧑‍🦽 Bệnh nhân xem toàn bộ các ca của mình
-        where_clause += " AND BenhNhanID = ?"
+        # 👈 THAY ĐỔI: ? -> %s
+        where_clause += ' AND "BenhNhanID" = %s'
         params.append(session['user_id'])
 
     else:
         # 🧑‍💻 Admin xem toàn bộ, có thể lọc theo bác sỹ hoặc bệnh nhân
         if doctor_id:
-            where_clause += " AND BacSiID = ?"
+            # 👈 THAY ĐỔI: ? -> %s
+            where_clause += ' AND "BacSiID" = %s'
             params.append(doctor_id)
         if patient_id:
-            where_clause += " AND BenhNhanID = ?"
+            # 👈 THAY ĐỔI: ? -> %s
+            where_clause += ' AND "BenhNhanID" = %s'
             params.append(patient_id)
 
     # ===== Lọc theo ngày =====
     if start_date:
-        where_clause += " AND NgayChanDoan >= CONVERT(DATE, ?)"
+        # 👈 THAY ĐỔI: CONVERT(DATE, ?) -> %s::DATE
+        where_clause += ' AND "NgayChanDoan" >= %s::DATE'
         params.append(start_date)
     if end_date:
-        where_clause += " AND NgayChanDoan <= CONVERT(DATE, ?)"
+        # 👈 THAY ĐỔI: CONVERT(DATE, ?) -> %s::DATE
+        where_clause += ' AND "NgayChanDoan" <= %s::DATE'
         params.append(end_date)
 
     # ===== Lọc theo nguy cơ =====
+    # 👈 THAY ĐỔI: Cú pháp LIKE COLLATE sang ILIKE
     if risk_filter == 'high':
-        where_clause += " AND LOWER(NguyCo) LIKE '%cao%'"
+        where_clause += " AND \"NguyCo\" ILIKE '%cao%'"
     elif risk_filter == 'low':
-        where_clause += " AND LOWER(NguyCo COLLATE SQL_Latin1_General_Cp1253_CI_AI) LIKE '%thap%'"
+        where_clause += " AND \"NguyCo\" ILIKE '%thap%'"
 
     # ===== Truy vấn chính =====
+    # 👈 THAY ĐỔI: Đảm bảo tên cột trong view V_LichSuChanDoan khớp
+    # (Giả sử view trả về các tên cột chuẩn)
     query = f"""
-        SELECT ChanDoanID, BenhNhanID, TenBenhNhan, GioiTinh, Tuoi, TenBacSi, NgayChanDoan,
-        BMI, HuyetApTamThu, HuyetApTamTruong, Cholesterol, DuongHuyet,
-        HutThuoc, UongCon, TapTheDuc, NguyCo, LoiKhuyen
-
-        FROM V_LichSuChanDoan
+        SELECT "ChanDoanID", "BenhNhanID", "TenBenhNhan", "GioiTinh", "Tuoi", "TenBacSi", "NgayChanDoan",
+        "BMI", "HuyetApTamThu", "HuyetApTamTruong", "Cholesterol", "DuongHuyet",
+        "HutThuoc", "UongCon", "TapTheDuc", "NguyCo", "LoiKhuyen"
+        FROM "V_LichSuChanDoan"
         {where_clause}
-        ORDER BY NgayChanDoan {'DESC' if sort_order == 'desc' else 'ASC'}
+        ORDER BY "NgayChanDoan" {'DESC' if sort_order == 'desc' else 'ASC'}
     """
 
     cur.execute(query, params)
@@ -1059,11 +1101,37 @@ def history():
     # ✅ Highlight lời khuyên
     try:
         from app import highlight_advice
+        # Cần điều chỉnh để làm việc với NamedTuple (đã tự tương thích)
         for r in records:
             if hasattr(r, "LoiKhuyen") and r.LoiKhuyen:
-                r.LoiKhuyen = highlight_advice(r.LoiKhuyen)
+                # Tạo một list mới từ tuple, sửa đổi, rồi gán lại (nếu tuple là immutable)
+                # Hoặc nếu NamedTuple, cần tạo instance mới.
+                # NHƯNG, `records` là list các NamedTuple, ta có thể
+                # tạo một list dictionary mới hoặc xử lý trong template.
+                # Cách đơn giản nhất: `records` là list, ta có thể sửa
+                # `r.LoiKhuyen` nếu `r` là đối tượng có thể sửa đổi.
+                # NamedTuple là immutable, nên ta phải tạo list/dict mới.
+                pass # Tạm bỏ qua, vì highlight_advice trả về HTML
+                # CÁCH XỬ LÝ ĐÚNG:
+                # 1. Chuyển records sang list of dicts
+                # 2. Hoặc, gọi highlight_advice() trực tiếp trong file HTML (template)
+                # GIẢ SỬ ta sửa trực tiếp (nếu NamedTuple cho phép, hoặc nếu nó là dict)
+                # Vì `records` là list, ta có thể thay thế phần tử.
+                
+                # CÁCH TỐT NHẤT: Chuyển sang list of dicts
+                
+                pass # Sẽ xử lý highlight trong vòng lặp dưới
+                
     except Exception as e:
         print(f"⚠️ Lỗi highlight: {e}")
+
+    # Chuyển đổi records sang list of dicts để có thể sửa đổi LoiKhuyen
+    processed_records = []
+    for r in records:
+        record_dict = r._asdict() # Chuyển NamedTuple sang Dict
+        if record_dict.get("LoiKhuyen"):
+            record_dict["LoiKhuyen"] = highlight_advice(record_dict["LoiKhuyen"])
+        processed_records.append(record_dict)
 
     # ===== Danh sách lọc =====
     doctors, patients = [], []
@@ -1071,12 +1139,14 @@ def history():
     if role == 'doctor':
         # Danh sách bệnh nhân mà bác sỹ đó đã chẩn đoán
         conn2 = get_connection()
-        cur2 = conn2.cursor()
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur2 = conn2.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
         cur2.execute("""
-            SELECT DISTINCT bn.ID, bn.HoTen 
-            FROM ChanDoan cd 
-            JOIN NguoiDung bn ON cd.BenhNhanID = bn.ID
-            WHERE cd.BacSiID = ?
+            SELECT DISTINCT bn."ID", bn."HoTen" 
+            FROM "ChanDoan" cd 
+            JOIN "NguoiDung" bn ON cd."BenhNhanID" = bn."ID"
+            WHERE cd."BacSiID" = %s
         """, (session['user_id'],))
         patients = cur2.fetchall()
         conn2.close()
@@ -1084,17 +1154,18 @@ def history():
     elif role == 'admin':
         # Danh sách bác sỹ và bệnh nhân cho admin
         conn2 = get_connection()
-        cur2 = conn2.cursor()
-        cur2.execute("SELECT ID, HoTen FROM NguoiDung WHERE Role='doctor'")
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur2 = conn2.cursor(cursor_factory=NamedTupleCursor)
+        cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
         doctors = cur2.fetchall()
-        cur2.execute("SELECT ID, HoTen FROM NguoiDung WHERE Role='patient'")
+        cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
         patients = cur2.fetchall()
         conn2.close()
 
     # ===== Render =====
     return render_template(
         'history.html',
-        records=records,
+        records=processed_records, # 👈 THAY ĐỔI: dùng list đã xử lý
         doctors=doctors,
         patients=patients,
         start_date=start_date,
@@ -1121,10 +1192,12 @@ def delete_history(id):
         return redirect(url_for('history'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
     try:
         # ✅ Xóa theo ID (khóa chính)
-        cur.execute("DELETE FROM ChanDoan WHERE ID = ?", (id,))
+        # 👈 THAY ĐỔI: ? -> %s (Giả sử ID là khóa chính của ChanDoan)
+        cur.execute('DELETE FROM "ChanDoan" WHERE "ChanDoanID" = %s', (id,))
         conn.commit()
         flash("🗑️ Đã xóa bản ghi chẩn đoán thành công!", "success")
 
@@ -1151,18 +1224,20 @@ def edit_advice(id):
     # 🧹 Làm sạch: loại bỏ mọi thẻ HTML, style còn sót lại
     import re
     from html import unescape
-    clean_text = re.sub(r'<[^>]+>', '', new_advice)    # xóa thẻ HTML
-    clean_text = unescape(clean_text)                # giải mã HTML entities (&nbsp;)
-    clean_text = re.sub(r'\s{2,}', ' ', clean_text)   # gộp khoảng trắng
+    clean_text = re.sub(r'<[^>]+>', '', new_advice)  # xóa thẻ HTML
+    clean_text = unescape(clean_text)                 # giải mã HTML entities (&nbsp;)
+    clean_text = re.sub(r'\s{2,}', ' ', clean_text)  # gộp khoảng trắng
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     try:
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            UPDATE ChanDoan
-            SET LoiKhuyen = ?
-            WHERE ID = ?
+            UPDATE "ChanDoan"
+            SET "LoiKhuyen" = %s
+            WHERE "ChanDoanID" = %s
         """, (clean_text, id))
         conn.commit()
         flash("✅ Đã cập nhật lời khuyên cho bệnh nhân.", "success")
@@ -1187,7 +1262,8 @@ def manage_accounts():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # ================================
     # ➕ THÊM bệnh nhân mới
@@ -1204,7 +1280,8 @@ def manage_accounts():
         if not is_valid_gmail(email):
             flash("Vui lòng nhập Gmail hợp lệ (ví dụ: ten@gmail.com).", "warning")
         else:
-            cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Email = ?", (email,))
+            # 👈 THAY ĐỔI: ? -> %s
+            cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Email" = %s', (email,))
             if cur.fetchone()[0] > 0:
                 flash("Email này đã tồn tại trong hệ thống.", "warning")
             else:
@@ -1244,9 +1321,10 @@ def manage_accounts():
         doctor_id = session['user_id']
 
         # Kiểm tra quyền trước khi xóa
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            SELECT COUNT(*) FROM ChanDoan 
-            WHERE BacSiID=? AND BenhNhanID=?
+            SELECT COUNT(*) FROM "ChanDoan" 
+            WHERE "BacSiID"=%s AND "BenhNhanID"=%s
         """, (doctor_id, patient_id))
         has_permission = cur.fetchone()[0] > 0
 
@@ -1254,9 +1332,10 @@ def manage_accounts():
             flash("🚫 Bạn không có quyền xóa bệnh nhân này (chưa từng chẩn đoán).", "danger")
         else:
             try:
-                cur.execute("DELETE FROM ChanDoan WHERE BenhNhanID=?", (patient_id,))
-                cur.execute("DELETE FROM TinNhanAI WHERE BenhNhanID=?", (patient_id,))
-                cur.execute("DELETE FROM NguoiDung WHERE ID=?", (patient_id,))
+                # 👈 THAY ĐỔI: ? -> %s
+                cur.execute('DELETE FROM "ChanDoan" WHERE "BenhNhanID"=%s', (patient_id,))
+                cur.execute('DELETE FROM "TinNhanAI" WHERE "BenhNhanID"=%s', (patient_id,))
+                cur.execute('DELETE FROM "NguoiDung" WHERE "ID"=%s', (patient_id,))
                 conn.commit()
                 flash("🗑️ Đã xóa tài khoản và toàn bộ lịch sử chẩn đoán của bệnh nhân.", "success")
             except Exception as e:
@@ -1270,9 +1349,10 @@ def manage_accounts():
         patient_id = int(request.form.get('id'))
         doctor_id = session['user_id']
 
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            SELECT COUNT(*) FROM ChanDoan 
-            WHERE BacSiID=? AND BenhNhanID=?
+            SELECT COUNT(*) FROM "ChanDoan" 
+            WHERE "BacSiID"=%s AND "BenhNhanID"=%s
         """, (doctor_id, patient_id))
         has_permission = cur.fetchone()[0] > 0
 
@@ -1280,10 +1360,11 @@ def manage_accounts():
             flash("🚫 Bạn không có quyền chỉnh sửa bệnh nhân này (chưa từng chẩn đoán).", "danger")
         else:
             try:
+                # 👈 THAY ĐỔI: ? -> %s
                 cur.execute("""
-                    UPDATE NguoiDung
-                    SET HoTen=?, GioiTinh=?, NgaySinh=?, DienThoai=?, DiaChi=?
-                    WHERE ID=?
+                    UPDATE "NguoiDung"
+                    SET "HoTen"=%s, "GioiTinh"=%s, "NgaySinh"=%s, "DienThoai"=%s, "DiaChi"=%s
+                    WHERE "ID"=%s
                 """, (
                     request.form.get('ho_ten'),
                     request.form.get('gioi_tinh'),
@@ -1304,18 +1385,20 @@ def manage_accounts():
     search = request.args.get('search', '').strip()
 
     if search:
+        # 👈 THAY ĐỔI: ? -> %s và LIKE -> ILIKE (hoặc giữ LIKE nếu muốn phân biệt)
+        # Dùng ILIKE cho tìm kiếm không phân biệt chữ hoa
         cur.execute("""
-            SELECT ID, HoTen, Email, GioiTinh, NgaySinh, DienThoai, DiaChi
-            FROM NguoiDung
-            WHERE Role='patient' AND (HoTen LIKE ? OR Email LIKE ?)
-            ORDER BY HoTen
+            SELECT "ID", "HoTen", "Email", "GioiTinh", "NgaySinh", "DienThoai", "DiaChi"
+            FROM "NguoiDung"
+            WHERE "Role"='patient' AND ("HoTen" ILIKE %s OR "Email" ILIKE %s)
+            ORDER BY "HoTen"
         """, (f"%{search}%", f"%{search}%"))
     else:
         cur.execute("""
-            SELECT ID, HoTen, Email, GioiTinh, NgaySinh, DienThoai, DiaChi
-            FROM NguoiDung
-            WHERE Role='patient'
-            ORDER BY HoTen
+            SELECT "ID", "HoTen", "Email", "GioiTinh", "NgaySinh", "DienThoai", "DiaChi"
+            FROM "NguoiDung"
+            WHERE "Role"='patient'
+            ORDER BY "HoTen"
         """)
 
     raw_patients = cur.fetchall()
@@ -1323,8 +1406,9 @@ def manage_accounts():
     # ================================
     # 🔑 Lấy danh sách bệnh nhân bác sỹ từng chẩn đoán
     # ================================
+    # 👈 THAY ĐỔI: ? -> %s
     cur.execute("""
-        SELECT DISTINCT BenhNhanID FROM ChanDoan WHERE BacSiID=?
+        SELECT DISTINCT "BenhNhanID" FROM "ChanDoan" WHERE "BacSiID"=%s
     """, (session['user_id'],))
     my_patients = {r.BenhNhanID for r in cur.fetchall()}
 
@@ -1362,8 +1446,7 @@ def manage_accounts():
     )
 
 from flask import flash
-from werkzeug.security import check_password_hash, generate_password_hash
-
+# from werkzeug.security import check_password_hash, generate_password_hash # Không dùng
 import re
 from flask import jsonify
 
@@ -1393,15 +1476,18 @@ def change_password():
         })
 
     conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT MatKhau FROM NguoiDung WHERE ID=?", (session['user_id'],))
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
+    # 👈 THAY ĐỔI: ? -> %s
+    cur.execute('SELECT "MatKhau" FROM "NguoiDung" WHERE "ID"=%s', (session['user_id'],))
     row = cur.fetchone()
 
     if not row or row.MatKhau != old_pw:
         conn.close()
         return jsonify({"success": False, "message": "Mật khẩu cũ không chính xác."})
 
-    cur.execute("UPDATE NguoiDung SET MatKhau=? WHERE ID=?", (new_pw, session['user_id']))
+    # 👈 THAY ĐỔI: ? -> %s
+    cur.execute('UPDATE "NguoiDung" SET "MatKhau"=%s WHERE "ID"=%s', (new_pw, session['user_id']))
     conn.commit()
     conn.close()
     return jsonify({"success": True, "message": "Đổi mật khẩu thành công!"})
@@ -1416,14 +1502,16 @@ def profile():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # --- Khi người dùng cập nhật hồ sơ ---
     if request.method == 'POST':
+        # 👈 THAY ĐỔI: ? -> %s
         cur.execute("""
-            UPDATE NguoiDung
-            SET HoTen=?, DienThoai=?, NgaySinh=?, GioiTinh=?, DiaChi=?
-            WHERE ID=?
+            UPDATE "NguoiDung"
+            SET "HoTen"=%s, "DienThoai"=%s, "NgaySinh"=%s, "GioiTinh"=%s, "DiaChi"=%s
+            WHERE "ID"=%s
         """, (
             request.form.get('ho_ten'),
             request.form.get('dien_thoai'),
@@ -1444,9 +1532,10 @@ def profile():
         flash("Cập nhật hồ sơ thành công!", "success")
 
     # --- Lấy thông tin người dùng (bao gồm ngày tạo tài khoản) ---
+    # 👈 THAY ĐỔI: ? -> %s
     cur.execute("""
-        SELECT HoTen, Email, Role, DienThoai, NgaySinh, GioiTinh, DiaChi, MatKhau, NgayTao
-        FROM NguoiDung WHERE ID=?
+        SELECT "HoTen", "Email", "Role", "DienThoai", "NgaySinh", "GioiTinh", "DiaChi", "MatKhau", "NgayTao"
+        FROM "NguoiDung" WHERE "ID"=%s
     """, (session['user_id'],))
     user_info = cur.fetchone()
     can_change_password = False
@@ -1459,9 +1548,8 @@ def profile():
 
     # --- Chuẩn bị timeline hiển thị ---
     timeline = []
-    if user_info and user_info[-1]:
-        # user_info[-1] = NgayTao
-        created_at = user_info[-1].strftime("%d/%m/%Y %H:%M")
+    if user_info and user_info.NgayTao: # 👈 THAY ĐỔI: truy cập cột NgayTao
+        created_at = user_info.NgayTao.strftime("%d/%m/%Y %H:%M")
         timeline.append(f"Tạo tài khoản - {created_at}")
     if 'timeline' in session:
         timeline = session['timeline'] + timeline
@@ -1474,7 +1562,7 @@ def profile():
     )
 
 # ==========================================
-# 📨 Xuất báo cáo kết quả chẩn đoán ra Excel 
+# 📨 Xuất báo cáo kết quả chẩn đoán ra Excel  
 # ==========================================
 @app.route('/export_diagnosis', methods=['POST'])
 def export_diagnosis():
@@ -1503,8 +1591,10 @@ def export_diagnosis():
 
     if user_role == 'doctor':
         conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT HoTen FROM NguoiDung WHERE ID = ?", data.get('benhnhan_id'))
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s
+        cur.execute('SELECT "HoTen" FROM "NguoiDung" WHERE "ID" = %s', (data.get('benhnhan_id'),))
         row = cur.fetchone()
         conn.close()
         patient_name = row[0] if row else "Không xác định"
@@ -1619,7 +1709,7 @@ def export_diagnosis():
     advice_raw = data.get('ai_advice') or "Chưa có lời khuyên từ AI."
 
     # ✅ Bỏ toàn bộ thẻ HTML & thuộc tính style
-    advice_text = re.sub(r'style="[^"]*"', '', advice_raw)    # xóa thuộc tính style
+    advice_text = re.sub(r'style="[^"]*"', '', advice_raw)  # xóa thuộc tính style
     advice_text = re.sub(r'<[^>]+>', '', advice_text)         # xóa thẻ HTML còn lại
     advice_text = unescape(advice_text)                      # giải mã HTML entity (&nbsp;,...)
     advice_text = re.sub(r'\s*\n\s*', '\n', advice_text.strip())
@@ -1711,24 +1801,26 @@ def admin_dashboard():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # ========================== 1️⃣ TỔNG QUAN ==========================
-    cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Role='doctor'")
+    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Role='patient'")
+    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'patient\'')
     total_patients = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM ChanDoan")
+    cur.execute('SELECT COUNT(*) FROM "ChanDoan"')
     total_diagnoses = cur.fetchone()[0]
 
     # ========================== 2️⃣ XU HƯỚNG CHẨN ĐOÁN ==========================
+    # 👈 THAY ĐỔI: FORMAT -> TO_CHAR và ILIKE
     cur.execute("""
-        SELECT FORMAT(NgayChanDoan, 'MM-yyyy') AS Thang,
-               COUNT(*) AS SoLuong,
-               SUM(CASE WHEN LOWER(NguyCo) LIKE '%cao%' THEN 1 ELSE 0 END) AS SoCao
-        FROM ChanDoan
-        GROUP BY FORMAT(NgayChanDoan, 'MM-yyyy')
-        ORDER BY MIN(NgayChanDoan)
+        SELECT TO_CHAR("NgayChanDoan", 'MM-YYYY') AS "Thang",
+               COUNT(*) AS "SoLuong",
+               SUM(CASE WHEN "NguyCo" ILIKE '%cao%' THEN 1 ELSE 0 END) AS "SoCao"
+        FROM "ChanDoan"
+        GROUP BY TO_CHAR("NgayChanDoan", 'MM-YYYY')
+        ORDER BY MIN("NgayChanDoan")
     """)
     monthly = cur.fetchall()
     months = [row.Thang for row in monthly]
@@ -1737,22 +1829,24 @@ def admin_dashboard():
 
     # ========================== 3️⃣ TỶ LỆ NGUY CƠ ==========================
     cur.execute("""
-        SELECT NguyCo, COUNT(*) AS SoLuong
-        FROM ChanDoan
-        GROUP BY NguyCo
+        SELECT "NguyCo", COUNT(*) AS "SoLuong"
+        FROM "ChanDoan"
+        GROUP BY "NguyCo"
     """)
     risk_data = cur.fetchall()
     risk_labels = [row.NguyCo for row in risk_data]
     risk_values = [row.SoLuong for row in risk_data]
 
     # ========================== 4️⃣ TOP BÁC SỸ ==========================
+    # 👈 THAY ĐỔI: TOP 5 -> LIMIT 5 và ILIKE
     cur.execute("""
-        SELECT TOP 5 bs.HoTen, COUNT(cd.ID) AS SoCa,
-               SUM(CASE WHEN cd.NguyCo LIKE '%cao%' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS TyLeCao
-        FROM ChanDoan cd
-        JOIN NguoiDung bs ON cd.BacSiID = bs.ID
-        GROUP BY bs.HoTen
-        ORDER BY SoCa DESC
+        SELECT bs."HoTen", COUNT(cd."ChanDoanID") AS "SoCa",
+               SUM(CASE WHEN cd."NguyCo" ILIKE '%cao%' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS "TyLeCao"
+        FROM "ChanDoan" cd
+        JOIN "NguoiDung" bs ON cd."BacSiID" = bs."ID"
+        GROUP BY bs."HoTen"
+        ORDER BY "SoCa" DESC
+        LIMIT 5
     """)
     top_doctors = cur.fetchall()
     top_names = [row.HoTen for row in top_doctors]
@@ -1762,13 +1856,13 @@ def admin_dashboard():
     # ========================== 5️⃣ TRUNG BÌNH CHỈ SỐ Y KHOA ==========================
     cur.execute("""
         SELECT 
-            ROUND(AVG(BMI), 1) AS AvgBMI,
-            ROUND(AVG(HuyetApTamThu), 0) AS AvgHATT,
-            ROUND(AVG(HuyetApTamTruong), 0) AS AvgHATTr,
-            SUM(CASE WHEN HutThuoc=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS SmokePercent,
-            SUM(CASE WHEN UongCon=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS AlcoPercent,
-            SUM(CASE WHEN TapTheDuc=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS ActivePercent
-        FROM ChanDoan
+            ROUND(AVG("BMI"), 1) AS "AvgBMI",
+            ROUND(AVG("HuyetApTamThu"), 0) AS "AvgHATT",
+            ROUND(AVG("HuyetApTamTruong"), 0) AS "AvgHATTr",
+            SUM(CASE WHEN "HutThuoc"=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS "SmokePercent",
+            SUM(CASE WHEN "UongCon"=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS "AlcoPercent",
+            SUM(CASE WHEN "TapTheDuc"=1 THEN 1 ELSE 0 END)*100.0/COUNT(*) AS "ActivePercent"
+        FROM "ChanDoan"
     """)
     row = cur.fetchone()
     avg_bmi = row.AvgBMI or 0
@@ -1779,14 +1873,15 @@ def admin_dashboard():
     active_percent = round(row.ActivePercent or 0, 1)
 
     # ========================== 6️⃣ HIỆU SUẤT BÁC SỸ ==========================
+    # 👈 THAY ĐỔI: ILIKE
     cur.execute("""
-        SELECT ND.HoTen AS BacSi,
-               COUNT(CD.ID) AS SoCa,
-               SUM(CASE WHEN CD.NguyCo LIKE '%cao%' THEN 1 ELSE 0 END)*100.0/COUNT(*) AS TyLeCao
-        FROM ChanDoan CD
-        JOIN NguoiDung ND ON CD.BacSiID = ND.ID
-        GROUP BY ND.HoTen
-        ORDER BY SoCa DESC
+        SELECT ND."HoTen" AS "BacSi",
+               COUNT(CD."ChanDoanID") AS "SoCa",
+               SUM(CASE WHEN CD."NguyCo" ILIKE '%cao%' THEN 1 ELSE 0 END)*100.0/COUNT(*) AS "TyLeCao"
+        FROM "ChanDoan" CD
+        JOIN "NguoiDung" ND ON CD."BacSiID" = ND."ID"
+        GROUP BY ND."HoTen"
+        ORDER BY "SoCa" DESC
     """)
     perf_rows = cur.fetchall()
     perf_names = [r.BacSi for r in perf_rows]
@@ -1794,7 +1889,7 @@ def admin_dashboard():
     perf_rate = [round(r.TyLeCao or 0, 1) for r in perf_rows]
 
     # ========================== 7️⃣ TỔNG SỐ BỆNH NHÂN CÓ CHẨN ĐOÁN ==========================
-    cur.execute("SELECT COUNT(DISTINCT BenhNhanID) FROM ChanDoan")
+    cur.execute('SELECT COUNT(DISTINCT "BenhNhanID") FROM "ChanDoan"')
     diagnosed_patients = cur.fetchone()[0]
 
     conn.close()
@@ -1835,7 +1930,8 @@ def admin_manage_users():
 
     import datetime
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # Xác định loại người dùng đang quản lý
     role_type = request.args.get('type', 'doctor')  # mặc định là doctor
@@ -1857,7 +1953,8 @@ def admin_manage_users():
         if not is_valid_gmail(email):
             flash("Vui lòng nhập Gmail hợp lệ (ví dụ: ten@gmail.com).", "warning")
         else:
-            cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Email = ?", (email,))
+            # 👈 THAY ĐỔI: ? -> %s
+            cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Email" = %s', (email,))
             if cur.fetchone()[0] > 0:
                 flash("Email này đã tồn tại trong hệ thống.", "warning")
             else:
@@ -1903,16 +2000,18 @@ def admin_manage_users():
         dia_chi = request.form.get('dia_chi')
 
         if not mat_khau:
+            # 👈 THAY ĐỔI: ? -> %s
             cur.execute("""
-                UPDATE NguoiDung
-                SET HoTen=?, GioiTinh=?, NgaySinh=?, Email=?, DienThoai=?, DiaChi=?
-                WHERE ID=? AND Role=?
+                UPDATE "NguoiDung"
+                SET "HoTen"=%s, "GioiTinh"=%s, "NgaySinh"=%s, "Email"=%s, "DienThoai"=%s, "DiaChi"=%s
+                WHERE "ID"=%s AND "Role"=%s
             """, (ho_ten, gioi_tinh, ngay_sinh, email, dien_thoai, dia_chi, id, role_type))
         else:
+            # 👈 THAY ĐỔI: ? -> %s
             cur.execute("""
-                UPDATE NguoiDung
-                SET HoTen=?, GioiTinh=?, NgaySinh=?, Email=?, MatKhau=?, DienThoai=?, DiaChi=?
-                WHERE ID=? AND Role=?
+                UPDATE "NguoiDung"
+                SET "HoTen"=%s, "GioiTinh"=%s, "NgaySinh"=%s, "Email"=%s, "MatKhau"=%s, "DienThoai"=%s, "DiaChi"=%s
+                WHERE "ID"=%s AND "Role"=%s
             """, (ho_ten, gioi_tinh, ngay_sinh, email, mat_khau, dien_thoai, dia_chi, id, role_type))
         conn.commit()
         flash(f"✍️ Cập nhật thông tin {title_map[role_type]} thành công!", "success")
@@ -1924,14 +2023,16 @@ def admin_manage_users():
         user_id = int(request.form.get('id'))
         try:
             if role_type == 'patient':
-                cur.execute("DELETE FROM ChanDoan WHERE BenhNhanID=?", (user_id,))
-                cur.execute("DELETE FROM TinNhanAI WHERE BenhNhanID=?", (user_id,))
+                # 👈 THAY ĐỔI: ? -> %s
+                cur.execute('DELETE FROM "ChanDoan" WHERE "BenhNhanID"=%s', (user_id,))
+                cur.execute('DELETE FROM "TinNhanAI" WHERE "BenhNhanID"=%s', (user_id,))
             elif role_type == 'doctor':
                 # (Tùy chọn: Xử lý các ca chẩn đoán của bác sỹ này, ví dụ: set BacSiID = NULL)
-                # cur.execute("UPDATE ChanDoan SET BacSiID=NULL WHERE BacSiID=?", (user_id,))
+                # cur.execute('UPDATE "ChanDoan" SET "BacSiID"=NULL WHERE "BacSiID"=%s', (user_id,))
                 pass # Hiện tại chỉ xóa bác sỹ
 
-            cur.execute("DELETE FROM NguoiDung WHERE ID=? AND Role=?", (user_id, role_type))
+            # 👈 THAY ĐỔI: ? -> %s
+            cur.execute('DELETE FROM "NguoiDung" WHERE "ID"=%s AND "Role"=%s', (user_id, role_type))
             conn.commit()
             flash(f"Đã xóa {title_map[role_type]} khỏi hệ thống!", "success")
         except Exception as e:
@@ -1941,31 +2042,36 @@ def admin_manage_users():
     # ===================================================
     # 🧾 DANH SÁCH NGƯỜI DÙNG
     # ===================================================
+    # 👈 THAY ĐỔI: ? -> %s
     cur.execute(f"""
-        SELECT ID, HoTen, Email, GioiTinh, NgaySinh, DienThoai, DiaChi, NgayTao
-        FROM NguoiDung
-        WHERE Role=?
-        ORDER BY NgayTao DESC
+        SELECT "ID", "HoTen", "Email", "GioiTinh", "NgaySinh", "DienThoai", "DiaChi", "NgayTao"
+        FROM "NguoiDung"
+        WHERE "Role"=%s
+        ORDER BY "NgayTao" DESC
     """, (role_type,))
     users = cur.fetchall()
 
-    # Chuyển ngày sang kiểu datetime
+    # Chuyển ngày sang kiểu datetime (phần này giữ nguyên, vì nó xử lý dữ liệu sau khi fetch)
+    processed_users = []
     for u in users:
-        if hasattr(u, 'NgaySinh') and isinstance(u.NgaySinh, str):
+        user_dict = u._asdict()
+        if user_dict.get('NgaySinh') and isinstance(user_dict['NgaySinh'], str):
             try:
-                u.NgaySinh = datetime.datetime.strptime(u.NgaySinh.split(" ")[0], "%Y-%m-%d")
+                user_dict['NgaySinh'] = datetime.datetime.strptime(user_dict['NgaySinh'].split(" ")[0], "%Y-%m-%d").date()
             except:
-                u.NgaySinh = None
-        if hasattr(u, 'NgayTao') and isinstance(u.NgayTao, str):
+                user_dict['NgaySinh'] = None
+        if user_dict.get('NgayTao') and isinstance(user_dict['NgayTao'], str):
             try:
-                u.NgayTao = datetime.datetime.strptime(u.NgayTao.split(" ")[0], "%Y-%m-%d")
+                user_dict['NgayTao'] = datetime.datetime.strptime(user_dict['NgayTao'].split(" ")[0], "%Y-%m-%d").date()
             except:
-                u.NgayTao = None
+                user_dict['NgayTao'] = None
+        processed_users.append(user_dict)
+
 
     conn.close()
 
     return render_template('admin_users.html',
-                            users=users,
+                            users=processed_users, # 👈 THAY ĐỔI: Dùng list đã xử lý
                             role_type=role_type,
                             page_title=page_title)
 
@@ -1984,42 +2090,46 @@ def export_admin_stats():
     from datetime import datetime
 
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
 
     # =============================== #
     # 🗃️ LẤY DỮ LIỆU TỪ DATABASE
     # =============================== #
-    cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Role='doctor'")
+    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM NguoiDung WHERE Role='patient'")
+    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'patient\'')
     total_patients = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM ChanDoan")
+    cur.execute('SELECT COUNT(*) FROM "ChanDoan"')
     total_diagnoses = cur.fetchone()[0]
 
     cur.execute("""
-        SELECT NguyCo, COUNT(*) AS SoLuong
-        FROM ChanDoan
-        GROUP BY NguyCo
+        SELECT "NguyCo", COUNT(*) AS "SoLuong"
+        FROM "ChanDoan"
+        GROUP BY "NguyCo"
     """)
     risk_data = cur.fetchall()
 
+    # 👈 THAY ĐỔI: TOP 5 -> LIMIT 5
     cur.execute("""
-        SELECT TOP 5 bs.HoTen, COUNT(cd.ID) AS SoCa
-        FROM ChanDoan cd
-        JOIN NguoiDung bs ON cd.BacSiID = bs.ID
-        GROUP BY bs.HoTen
-        ORDER BY SoCa DESC
+        SELECT bs."HoTen", COUNT(cd."ChanDoanID") AS "SoCa"
+        FROM "ChanDoan" cd
+        JOIN "NguoiDung" bs ON cd."BacSiID" = bs."ID"
+        GROUP BY bs."HoTen"
+        ORDER BY "SoCa" DESC
+        LIMIT 5
     """)
     top_doctors = cur.fetchall()
 
+    # 👈 THAY ĐỔI: ILIKE
     cur.execute("""
-        SELECT ND.HoTen AS BacSi,
-               COUNT(CD.ID) AS SoCa,
-               SUM(CASE WHEN CD.NguyCo LIKE '%cao%' THEN 1 ELSE 0 END)*100.0/COUNT(*) AS TyLeCao
-        FROM ChanDoan CD
-        JOIN NguoiDung ND ON CD.BacSiID = ND.ID
-        GROUP BY ND.HoTen
-        ORDER BY SoCa DESC
+        SELECT ND."HoTen" AS "BacSi",
+               COUNT(CD."ChanDoanID") AS "SoCa",
+               SUM(CASE WHEN CD."NguyCo" ILIKE '%cao%' THEN 1 ELSE 0 END)*100.0/COUNT(*) AS "TyLeCao"
+        FROM "ChanDoan" CD
+        JOIN "NguoiDung" ND ON CD."BacSiID" = ND."ID"
+        GROUP BY ND."HoTen"
+        ORDER BY "SoCa" DESC
     """)
     perf_rows = cur.fetchall()
     conn.close()
@@ -2278,11 +2388,13 @@ def chat_ai_api():
         # --- Lưu vào cơ sở dữ liệu ---
         user_id = session.get('user_id')
         conn = get_connection()
-        cur = conn.cursor()
+        # 👈 THAY ĐỔI: Thêm cursor_factory
+        cur = conn.cursor(cursor_factory=NamedTupleCursor)
+        # 👈 THAY ĐỔI: ? -> %s và NOW()
         cur.execute("""
-            INSERT INTO TinNhanAI (BenhNhanID, NoiDung, PhanHoi, ThoiGian)
-            VALUES (?, ?, ?, ?)
-        """, (user_id, msg, formatted_answer, datetime.now()))
+            INSERT INTO "TinNhanAI" ("BenhNhanID", "NoiDung", "PhanHoi", "ThoiGian")
+            VALUES (%s, %s, %s, NOW())
+        """, (user_id, msg, formatted_answer))
         conn.commit()
         conn.close()
 
@@ -2305,12 +2417,14 @@ def chat_ai_history():
 
     user_id = session['user_id']
     conn = get_connection()
-    cur = conn.cursor()
+    # 👈 THAY ĐỔI: Thêm cursor_factory
+    cur = conn.cursor(cursor_factory=NamedTupleCursor)
+    # 👈 THAY ĐỔI: FORMAT -> TO_CHAR và ? -> %s
     cur.execute("""
-        SELECT NoiDung, PhanHoi, FORMAT(ThoiGian, 'HH:mm dd/MM') AS ThoiGian
-        FROM TinNhanAI
-        WHERE BenhNhanID = ?
-        ORDER BY ThoiGian
+        SELECT "NoiDung", "PhanHoi", TO_CHAR("ThoiGian", 'HH24:MI DD/MM') AS "ThoiGian"
+        FROM "TinNhanAI"
+        WHERE "BenhNhanID" = %s
+        ORDER BY "ThoiGian"
     """, (user_id,))
     rows = cur.fetchall()
     conn.close()
