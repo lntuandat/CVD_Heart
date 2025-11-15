@@ -13,4 +13,5 @@ xgboost==1.7.6
 openpyxl==3.1.5
 pillow==11.3.0
 pg8000==1.31.2
+certifi==2024.8.30
 

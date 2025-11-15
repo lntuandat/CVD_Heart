@@ -22,9 +22,11 @@ import random
 import re
 import string
 import re
-import ssl  # 👈 THÊM: Cần cho SSL của Supabase
+import ssl  # SSL for Supabase
+import certifi  # 👈 THÊM: Cần cho SSL của Supabase
 from urllib.parse import urlparse  # 👈 THÊM: Để parse SUPABASE_URL
-from collections import namedtuple # 👈 THÊM: Để xử lý route /profile
+from collections import namedtuple
+from werkzeug.middleware.proxy_fix import ProxyFix # 👈 THÊM: Để xử lý route /profile
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -35,6 +37,13 @@ import matplotlib.pyplot as plt
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "cvdapp-secret-key")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+@app.before_request
+def enforce_https_redirect():
+    proto = request.headers.get("X-Forwarded-Proto")
+    if proto == "http":
+        return redirect(request.url.replace("http://", "https://", 1), code=301)
 
 oauth = OAuth(app)
 SOCIAL_PROVIDERS = {"google": False}
@@ -125,7 +134,7 @@ def get_connection():
     parsed_url = urlparse(DATABASE_URL)
     
     # Tạo bối cảnh SSL
-    ssl_context = ssl.create_default_context()
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
     
     # Trả về kết nối pg8000 DB-API
     return pg8000.connect(
@@ -513,6 +522,7 @@ def oauth_login(provider):
         return redirect(url_for('login'))
 
     redirect_uri = url_for('oauth_callback', provider=provider, _external=True)
+    app.logger.info('OAuth redirect URI dang dung: %s', redirect_uri)
     kwargs = {}
     if provider == "google":
         nonce = token_urlsafe(16)
