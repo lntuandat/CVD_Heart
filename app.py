@@ -3,7 +3,6 @@ import pandas as pd
 import os
 from werkzeug.utils import secure_filename
 import pg8000.dbapi as pg8000  # 👈 THAY ĐỔI: Import pg8000 (DB-API)
-from pg8000.dbapi import DictCursor  # 👈 THAY ĐỔI: Dùng DictCursor
 import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -257,7 +256,7 @@ def register():
             return render_template('register.html', today=today)
 
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         if cur.fetchone():
             conn.close()
@@ -329,7 +328,7 @@ def verify_email():
 
         try:
             conn = get_connection()
-            cur = conn.cursor(cursor_factory=DictCursor)
+            cur = conn.cursor()
             cur.execute(
                 """
                 INSERT INTO "NguoiDung" ("HoTen", "GioiTinh", "NgaySinh", "Email", "MatKhau", "Role")
@@ -378,7 +377,7 @@ def confirm_patient_invite(token):
             return render_template('confirm_invite.html', email=data.get('email'), name=data.get('ho_ten'), token=token)
 
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (data.get('email'),))
         if cur.fetchone():
             conn.close()
@@ -421,7 +420,7 @@ def forgot_password():
             return render_template('forgot_password.html')
 
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         user = cur.fetchone()
         if not user:
@@ -470,7 +469,7 @@ def login():
         pw = request.form.get('password', '').strip()
 
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute("""
             SELECT "ID", "HoTen", "Role", "MatKhau"
             FROM "NguoiDung"
@@ -548,7 +547,7 @@ def oauth_callback(provider):
     full_name = user_info.get("name") or user_info.get("given_name") or email.split("@")[0]
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     cur.execute('SELECT "ID", "HoTen", "Role", "MatKhau" FROM "NguoiDung" WHERE "Email" = %s', (email,))
     user = cur.fetchone()
 
@@ -636,7 +635,7 @@ def get_patient_info(benhnhan_id):
         return jsonify({"error": "Unauthorized"}), 403
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     cur.execute("""
         SELECT 
@@ -666,7 +665,7 @@ def diagnose():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     benhnhans = []
     if session.get('role') == 'doctor':
         cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
@@ -883,7 +882,7 @@ def send_diagnosis_email():
         return redirect(url_for('diagnose'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     cur.execute('SELECT "HoTen", "Email" FROM "NguoiDung" WHERE "ID" = %s', (benhnhan_id,))
     patient = cur.fetchone()
     conn.close()
@@ -961,7 +960,7 @@ def history():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
@@ -1026,7 +1025,7 @@ def history():
 
     if role == 'doctor':
         conn2 = get_connection()
-        cur2 = conn2.cursor(cursor_factory=DictCursor)
+        cur2 = conn2.cursor()
         cur2.execute("""
             SELECT DISTINCT bn."ID", bn."HoTen" 
             FROM "ChanDoan" cd 
@@ -1037,7 +1036,7 @@ def history():
         conn2.close()
     elif role == 'admin':
         conn2 = get_connection()
-        cur2 = conn2.cursor(cursor_factory=DictCursor)
+        cur2 = conn2.cursor()
         cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
         doctors = cur2.fetchall()
         cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
@@ -1073,7 +1072,7 @@ def delete_history(id):
         return redirect(url_for('history'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     try:
         cur.execute('DELETE FROM "ChanDoan" WHERE "ChanDoanID" = %s', (id,))
         conn.commit()
@@ -1102,7 +1101,7 @@ def edit_advice(id):
     clean_text = re.sub(r'\s{2,}', ' ', clean_text)
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     try:
         cur.execute("""
             UPDATE "ChanDoan"
@@ -1128,7 +1127,7 @@ def manage_accounts():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     if request.method == 'POST' and 'add_patient' in request.form:
         ho_ten = request.form.get('ho_ten')
@@ -1287,7 +1286,7 @@ def change_password():
         })
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     cur.execute('SELECT "MatKhau" FROM "NguoiDung" WHERE "ID"=%s', (session['user_id'],))
     row = cur.fetchone()
 
@@ -1310,7 +1309,7 @@ def profile():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     if request.method == 'POST':
         cur.execute("""
@@ -1393,7 +1392,7 @@ def export_diagnosis():
 
     if user_role == 'doctor':
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute('SELECT "HoTen" FROM "NguoiDung" WHERE "ID" = %s', (data.get('benhnhan_id'),))
         row = cur.fetchone()
         conn.close()
@@ -1544,7 +1543,7 @@ def admin_dashboard():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()['count']
@@ -1661,7 +1660,7 @@ def admin_manage_users():
 
     import datetime
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     role_type = request.args.get('type', 'doctor')
     title_map = {'doctor': 'Bác sỹ', 'patient': 'Bệnh nhân'}
@@ -1774,7 +1773,7 @@ def export_admin_stats():
     from datetime import datetime
     
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
 
     cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()['count']
@@ -2002,7 +2001,7 @@ def chat_ai_api():
 
         user_id = session.get('user_id')
         conn = get_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
+        cur = conn.cursor()
         cur.execute("""
             INSERT INTO "TinNhanAI" ("BenhNhanID", "NoiDung", "PhanHoi", "ThoiGian")
             VALUES (%s, %s, %s, NOW())
@@ -2028,7 +2027,7 @@ def chat_ai_history():
 
     user_id = session['user_id']
     conn = get_connection()
-    cur = conn.cursor(cursor_factory=DictCursor)
+    cur = conn.cursor()
     cur.execute("""
         SELECT "NoiDung", "PhanHoi", TO_CHAR("ThoiGian", 'HH24:MI DD/MM') AS "ThoiGian"
         FROM "TinNhanAI"
