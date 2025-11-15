@@ -108,9 +108,9 @@ def send_email(to_email: str, subject: str, html_body: str):
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
-# 👈 ==========================================
-# 👈 THAY ĐỔI: HÀM KẾT NỐI (dùng pg8000 và SUPABASE_URL)
-# 👈 ==========================================
+# ==========================================
+# HÀM KẾT NỐI (dùng pg8000 và SUPABASE_URL)
+# ==========================================
 def get_connection():
     """Kết nối tới PostgreSQL (Supabase) sử dụng pg8000."""
     DATABASE_URL = os.getenv("SUPABASE_URL")
@@ -137,7 +137,6 @@ def get_connection():
         database=parsed_url.path[1:],  # Bỏ dấu '/' ở đầu
         ssl_context=ssl_context
     )
-# 👈 ==========================================
 
 @app.context_processor
 def inject_social_flags():
@@ -258,7 +257,6 @@ def register():
             return render_template('register.html', today=today)
 
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         if cur.fetchone():
@@ -331,7 +329,6 @@ def verify_email():
 
         try:
             conn = get_connection()
-            # 👈 THAY ĐỔI: Dùng DictCursor
             cur = conn.cursor(cursor_factory=DictCursor)
             cur.execute(
                 """
@@ -381,7 +378,6 @@ def confirm_patient_invite(token):
             return render_template('confirm_invite.html', email=data.get('email'), name=data.get('ho_ten'), token=token)
 
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute('SELECT "ID" FROM "NguoiDung" WHERE "Email" = %s', (data.get('email'),))
         if cur.fetchone():
@@ -425,7 +421,6 @@ def forgot_password():
             return render_template('forgot_password.html')
 
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Email" = %s', (email,))
         user = cur.fetchone()
@@ -436,7 +431,6 @@ def forgot_password():
 
         new_pass = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
         try:
-            # 👈 THAY ĐỔI: row.ID -> row['ID']
             cur.execute('UPDATE "NguoiDung" SET "MatKhau"=%s WHERE "ID"=%s', (new_pass, user['ID']))
             conn.commit()
         except Exception as e:
@@ -446,14 +440,19 @@ def forgot_password():
             return render_template('forgot_password.html')
         conn.close()
 
+        # 👈 ==========================================
+        # 👈 SỬA LỖI: Đã xóa bình luận trong f-string
+        # 👈 ==========================================
         email_body = f"""
         <div style='font-family:Arial,sans-serif;line-height:1.6'>
-          <p>Xin chào {user['HoTen']},</p> {/* 👈 THAY ĐỔI: user.HoTen -> user['HoTen'] */}
+          <p>Xin chào {user['HoTen']},</p>
           <p>Mật khẩu đăng nhập mới của bạn là:
             <strong style='font-size:1.2rem;'>{new_pass}</strong></p>
           <p>Vui lòng đăng nhập và đổi mật khẩu ngay để đảm bảo an toàn.</p>
         </div>
         """
+        # 👈 ==========================================
+        
         try:
             send_email(email, "Mật khẩu mới CVD-App", email_body)
             flash("Mật khẩu mới đã được gửi tới email của bạn.", "success")
@@ -471,7 +470,6 @@ def login():
         pw = request.form.get('password', '').strip()
 
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute("""
             SELECT "ID", "HoTen", "Role", "MatKhau"
@@ -481,18 +479,13 @@ def login():
         user = cur.fetchone()
         conn.close()
 
-        # 🔹 Kiểm tra tài khoản & mật khẩu
-        # 👈 THAY ĐỔI: Dùng key access
         if user and user['MatKhau'] == pw:
-            # Tạo session
             session['user_id'] = user['ID']
             session['user'] = user['HoTen']
             session['role'] = user['Role']
 
-            # Hiển thị thông báo chào mừng
             flash(f"🎉 Chào mừng {user['HoTen']} đăng nhập thành công!", "success")
 
-            # ✅ Điều hướng theo vai trò
             if user['Role'] == 'admin':
                 return redirect(url_for('history'))
             elif user['Role'] == 'doctor':
@@ -501,11 +494,9 @@ def login():
                 return redirect(url_for('home'))
 
         else:
-            # ❌ Sai mật khẩu → hiển thị ngay
             flash("❌ Sai tài khoản hoặc mật khẩu. Vui lòng thử lại!", "danger")
             return render_template('login.html')
 
-    # GET request → hiển thị form
     return render_template('login.html')
 
 @app.route('/auth/<provider>')
@@ -557,12 +548,10 @@ def oauth_callback(provider):
     full_name = user_info.get("name") or user_info.get("given_name") or email.split("@")[0]
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     cur.execute('SELECT "ID", "HoTen", "Role", "MatKhau" FROM "NguoiDung" WHERE "Email" = %s', (email,))
     user = cur.fetchone()
 
-    # 👈 THAY ĐỔI: Dùng key access
     if user:
         user_id = user['ID']
         ho_ten = user['HoTen'] or full_name
@@ -647,7 +636,6 @@ def get_patient_info(benhnhan_id):
         return jsonify({"error": "Unauthorized"}), 403
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
     cur.execute("""
@@ -661,7 +649,6 @@ def get_patient_info(benhnhan_id):
     row = cur.fetchone()
     conn.close()
 
-    # 👈 THAY ĐỔI: Dùng key access
     if row:
         return jsonify({
             "tuoi": row['Tuoi'],
@@ -679,18 +666,15 @@ def diagnose():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     benhnhans = []
     if session.get('role') == 'doctor':
         cur.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
-        # 👈 THAY ĐỔI: Dùng key access
         benhnhans = [
             {"ID": r['ID'], "MaBN": f"BN{r['ID']:03}", "HoTen": r['HoTen']}
             for r in cur.fetchall()
         ]
 
-    # --- Biến khởi tạo ---
     result = None
     ai_advice = None
     file_result = None
@@ -700,9 +684,6 @@ def diagnose():
     results = []  
     threshold = float(request.form.get('threshold', 0.5))
 
-    # ======================
-    # 🔹 XỬ LÝ NHẬP LIỆU THỦ CÔNG
-    # ======================
     if request.method == 'POST' and 'predict_form' in request.form:
         try:
             benhnhan_id = (
@@ -711,7 +692,6 @@ def diagnose():
                 else session['user_id']
             )
 
-            # ... (Lấy dữ liệu form, không đổi) ...
             age = int(request.form.get('age'))
             gender_raw = request.form.get('gender')
             gender = 1 if gender_raw == 'Nam' else 0
@@ -726,7 +706,6 @@ def diagnose():
             alcohol = 1 if request.form.get('alcohol') == 'yes' else 0
             exercise = 1 if request.form.get('exercise') == 'yes' else 0
 
-            # ... (Logic dự đoán, không đổi) ...
             if xgb_model:
                 X = np.array([[age, gender, systolic, diastolic,
                                 chol, glucose, smoking, alcohol, exercise, bmi]],
@@ -748,8 +727,7 @@ def diagnose():
 
             nguy_co_text = "Nguy cơ cao" if risk_level == 'high' else "Nguy cơ thấp"
             result = f"{nguy_co_text} - {risk_percent}%"
-            
-            # ... (Logic AI, không đổi) ...
+
             chol_label = {0: "Bình thường", 1: "Cao nhẹ", 2: "Cao"}
             gluc_label = {0: "Bình thường", 1: "Cao nhẹ", 2: "Cao"}
             prompt = f"""
@@ -771,7 +749,6 @@ def diagnose():
             ai_advice_raw = get_ai_advice_cached(prompt)
             ai_advice = highlight_advice(ai_advice_raw)
 
-            # ... (Logic SHAP, không đổi) ...
             if xgb_model:
                 try:
                     explainer = shap.TreeExplainer(xgb_model)
@@ -793,7 +770,6 @@ def diagnose():
                 except Exception as e:
                     print(f"⚠️ Lỗi khi tạo biểu đồ SHAP: {e}")
 
-            # ... (Lưu CSDL, không đổi) ...
             chol_label = {0: "Bình thường", 1: "Cao nhẹ", 2: "Cao"}
             gluc_label = {0: "Bình thường", 1: "Cao nhẹ", 2: "Cao"}
             bacsi_id = session['user_id'] if session.get('role') == 'doctor' else None
@@ -811,7 +787,6 @@ def diagnose():
         except Exception as e:
             flash(f"Lỗi nhập liệu: {e}", "danger")
 
-    # ... (Xử lý file CSV/Excel, không đổi) ...
     if request.method == 'POST' and 'data_file' in request.files:
         try:
             file = request.files['data_file']
@@ -908,13 +883,11 @@ def send_diagnosis_email():
         return redirect(url_for('diagnose'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     cur.execute('SELECT "HoTen", "Email" FROM "NguoiDung" WHERE "ID" = %s', (benhnhan_id,))
     patient = cur.fetchone()
     conn.close()
 
-    # 👈 THAY ĐỔI: Dùng key access
     if not patient or not patient['Email']:
         flash("Không tìm thấy email người nhận.", "danger")
         return redirect(url_for('diagnose'))
@@ -943,15 +916,13 @@ def send_diagnosis_email():
     return redirect(url_for('diagnose'))
 
 # ==========================================
-# 🎨 Hàm tô đậm lời khuyên AI (1 màu nhấn - FIX BUG "600;'>")
+# 🎨 Hàm tô đậm lời khuyên AI
 # ==========================================
 import re
 
 def highlight_advice(text):
-    """💡 Làm nổi bật ý chính trong lời khuyên AI chỉ với 1 màu nhấn, an toàn không lỗi HTML."""
     if not text:
         return ""
-    # ... (Hàm này không thay đổi) ...
     text = re.sub(r'\*{1,3}', '', text)
     keywords = [
         r"(hãy|nên|cần|duy trì|giữ|kiểm soát|theo dõi|tránh|không nên|quan trọng|nguy cơ|cao|béo phì|hút thuốc|rượu|bia|ngủ đủ|tập luyện|ăn uống|điều chỉnh)"
@@ -982,7 +953,7 @@ def highlight_advice(text):
     return text
 
 # ==========================================
-# 📜 Lịch sử chẩn đoán (phân quyền + lọc bệnh nhân cho bác sỹ)
+# 📜 Lịch sử chẩn đoán
 # ==========================================
 @app.route('/history')
 def history():
@@ -990,19 +961,19 @@ def history():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
-    # ... (Logic lọc, không đổi) ...
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     patient_id = request.args.get('patient_id')
     doctor_id = request.args.get('doctor_id')
     risk_filter = request.args.get('risk_filter')
     sort_order = request.args.get('sort', 'desc')
+
     where_clause = "WHERE 1=1"
     params = []
     role = session.get('role')
+
     if role == 'doctor':
         where_clause += ' AND "BacSiID" = %s'
         params.append(session['user_id'])
@@ -1040,24 +1011,21 @@ def history():
     """
 
     cur.execute(query, params)
-    records = cur.fetchall() # Đây là list of dicts
+    records = cur.fetchall()
     conn.close()
 
     total_records = len(records)
-
-    # 👈 THAY ĐỔI: `records` đã là list of dicts, chỉ cần highlight
+    
     processed_records = []
     for record_dict in records:
         if record_dict.get("LoiKhuyen"):
             record_dict["LoiKhuyen"] = highlight_advice(record_dict["LoiKhuyen"])
         processed_records.append(record_dict)
 
-    # ===== Danh sách lọc =====
     doctors, patients = [], []
 
     if role == 'doctor':
         conn2 = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur2 = conn2.cursor(cursor_factory=DictCursor)
         cur2.execute("""
             SELECT DISTINCT bn."ID", bn."HoTen" 
@@ -1065,22 +1033,20 @@ def history():
             JOIN "NguoiDung" bn ON cd."BenhNhanID" = bn."ID"
             WHERE cd."BacSiID" = %s
         """, (session['user_id'],))
-        patients = cur2.fetchall() # List of dicts
+        patients = cur2.fetchall()
         conn2.close()
-
     elif role == 'admin':
         conn2 = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur2 = conn2.cursor(cursor_factory=DictCursor)
         cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
-        doctors = cur2.fetchall() # List of dicts
+        doctors = cur2.fetchall()
         cur2.execute('SELECT "ID", "HoTen" FROM "NguoiDung" WHERE "Role"=\'patient\'')
-        patients = cur2.fetchall() # List of dicts
+        patients = cur2.fetchall()
         conn2.close()
 
     return render_template(
         'history.html',
-        records=processed_records, # Dùng list đã xử lý
+        records=processed_records,
         doctors=doctors,
         patients=patients,
         start_date=start_date,
@@ -1107,7 +1073,6 @@ def delete_history(id):
         return redirect(url_for('history'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     try:
         cur.execute('DELETE FROM "ChanDoan" WHERE "ChanDoanID" = %s', (id,))
@@ -1131,13 +1096,12 @@ def edit_advice(id):
 
     new_advice = request.form.get('loi_khuyen', '').strip()
     
-    # ... (Logic làm sạch, không đổi) ...
+    from html import unescape
     clean_text = re.sub(r'<[^>]+>', '', new_advice)
     clean_text = unescape(clean_text)
     clean_text = re.sub(r'\s{2,}', ' ', clean_text)
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     try:
         cur.execute("""
@@ -1164,13 +1128,8 @@ def manage_accounts():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
-    # ... (Logic thêm/xóa/sửa, không đổi về mặt logic, chỉ thay đổi truy cập CSDL) ...
-    # ================================
-    # ➕ THÊM bệnh nhân mới
-    # ================================
     if request.method == 'POST' and 'add_patient' in request.form:
         ho_ten = request.form.get('ho_ten')
         gioi_tinh = request.form.get('gioi_tinh')
@@ -1183,11 +1142,10 @@ def manage_accounts():
         if not is_valid_gmail(email):
             flash("Vui lòng nhập Gmail hợp lệ (ví dụ: ten@gmail.com).", "warning")
         else:
-            cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Email" = %s', (email,))
-            if cur.fetchone()['count'] > 0: # 👈 THAY ĐỔI: [0] -> ['count'] (Giả sử)
+            cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Email" = %s', (email,))
+            if cur.fetchone()['count'] > 0:
                 flash("Email này đã tồn tại trong hệ thống.", "warning")
             else:
-                # ... (Logic gửi mail, không đổi) ...
                 verification_code = f"{random.randint(100000, 999999)}"
                 payload = { "ho_ten": ho_ten, "gioi_tinh": gioi_tinh, "ngay_sinh": ngay_sinh, "email": email, "mat_khau": mat_khau, "dien_thoai": dien_thoai, "dia_chi": dia_chi, "role": "patient", "code": verification_code }
                 token = generate_invite_token(payload)
@@ -1199,17 +1157,14 @@ def manage_accounts():
                 except Exception as e:
                     flash(f"Không thể gửi email xác thực: {e}", "danger")
 
-    # ================================
-    # 🗑️ XÓA tài khoản bệnh nhân
-    # ================================
     if request.method == 'POST' and 'delete_patient' in request.form:
         patient_id = int(request.form.get('id'))
         doctor_id = session['user_id']
         cur.execute("""
-            SELECT COUNT(*) FROM "ChanDoan" 
+            SELECT COUNT(*) AS "count" FROM "ChanDoan" 
             WHERE "BacSiID"=%s AND "BenhNhanID"=%s
         """, (doctor_id, patient_id))
-        has_permission = cur.fetchone()['count'] > 0 # 👈 THAY ĐỔI: [0] -> ['count']
+        has_permission = cur.fetchone()['count'] > 0
         if not has_permission:
             flash("🚫 Bạn không có quyền xóa bệnh nhân này (chưa từng chẩn đoán).", "danger")
         else:
@@ -1223,17 +1178,14 @@ def manage_accounts():
                 conn.rollback()
                 flash(f"❌ Lỗi khi xóa: {e}", "danger")
 
-    # ================================
-    # ✍️ CẬP NHẬT thông tin bệnh nhân
-    # ================================
     if request.method == 'POST' and 'update_patient' in request.form:
         patient_id = int(request.form.get('id'))
         doctor_id = session['user_id']
         cur.execute("""
-            SELECT COUNT(*) FROM "ChanDoan" 
+            SELECT COUNT(*) AS "count" FROM "ChanDoan" 
             WHERE "BacSiID"=%s AND "BenhNhanID"=%s
         """, (doctor_id, patient_id))
-        has_permission = cur.fetchone()['count'] > 0 # 👈 THAY ĐỔI: [0] -> ['count']
+        has_permission = cur.fetchone()['count'] > 0
         if not has_permission:
             flash("🚫 Bạn không có quyền chỉnh sửa bệnh nhân này (chưa từng chẩn đoán).", "danger")
         else:
@@ -1256,9 +1208,6 @@ def manage_accounts():
                 conn.rollback()
                 flash(f"❌ Lỗi khi cập nhật: {e}", "danger")
 
-    # ================================
-    # 🔎 TÌM KIẾM bệnh nhân
-    # ================================
     search = request.args.get('search', '').strip()
     if search:
         cur.execute("""
@@ -1274,22 +1223,15 @@ def manage_accounts():
             WHERE "Role"='patient'
             ORDER BY "HoTen"
         """)
-    raw_patients = cur.fetchall() # List of dicts
+    raw_patients = cur.fetchall()
 
-    # ================================
-    # 🔑 Lấy danh sách bệnh nhân bác sỹ từng chẩn đoán
-    # ================================
     cur.execute("""
         SELECT DISTINCT "BenhNhanID" FROM "ChanDoan" WHERE "BacSiID"=%s
     """, (session['user_id'],))
-    # 👈 THAY ĐỔI: Dùng key access
     my_patients = {r['BenhNhanID'] for r in cur.fetchall()}
 
-    # ================================
-    # XỬ LÝ dữ liệu hiển thị (Đã dùng dict, không cần thay đổi)
-    # ================================
     patients = []
-    for p in raw_patients: # p là dict
+    for p in raw_patients:
         ngay_sinh = p.get('NgaySinh')
         if ngay_sinh and hasattr(ngay_sinh, "strftime"):
             ngay_sinh_str = ngay_sinh.strftime("%d/%m/%Y")
@@ -1298,7 +1240,6 @@ def manage_accounts():
             ngay_sinh_str = ngay_sinh if ngay_sinh else "—"
             ngay_sinh_val = ngay_sinh if ngay_sinh else ""
         
-        # 👈 THAY ĐỔI: Dùng key access
         patients.append({
             "ID": p['ID'],
             "HoTen": p['HoTen'],
@@ -1319,7 +1260,9 @@ def manage_accounts():
         my_patients=my_patients
     )
 
-# ... (import flash, re, jsonify) ...
+from flask import flash
+import re
+from flask import jsonify
 
 # ==========================================
 # 🔐 Đổi mật khẩu (xử lý AJAX)
@@ -1344,12 +1287,10 @@ def change_password():
         })
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     cur.execute('SELECT "MatKhau" FROM "NguoiDung" WHERE "ID"=%s', (session['user_id'],))
     row = cur.fetchone()
 
-    # 👈 THAY ĐỔI: Dùng key access
     if not row or row['MatKhau'] != old_pw:
         conn.close()
         return jsonify({"success": False, "message": "Mật khẩu cũ không chính xác."})
@@ -1369,7 +1310,6 @@ def profile():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
     if request.method == 'POST':
@@ -1398,18 +1338,16 @@ def profile():
         FROM "NguoiDung" WHERE "ID"=%s
     """, (session['user_id'],))
     
-    # 👈 THAY ĐỔI: Chuyển dict sang namedtuple để template không bị hỏng
     user_info_dict = cur.fetchone()
     user_info = None
     
     if user_info_dict:
-        # Tạo một namedtuple "động" từ các keys của dict
+        # Chuyển dict sang namedtuple để template không bị hỏng (vì template dùng .TênCột)
         UserInfoTuple = namedtuple('UserInfo', user_info_dict.keys())
         user_info = UserInfoTuple(**user_info_dict)
 
     can_change_password = False
     if user_info:
-        # Giờ có thể dùng getattr(user_info, ...)
         mat_khau_val = getattr(user_info, 'MatKhau', None)
         if isinstance(mat_khau_val, str):
             mat_khau_val = mat_khau_val.strip()
@@ -1417,7 +1355,7 @@ def profile():
     conn.close()
 
     timeline = []
-    if user_info and user_info.NgayTao: # 👈 THAY ĐỔI: Giờ đã an toàn
+    if user_info and user_info.NgayTao:
         created_at = user_info.NgayTao.strftime("%d/%m/%Y %H:%M")
         timeline.append(f"Tạo tài khoản - {created_at}")
     if 'timeline' in session:
@@ -1425,7 +1363,7 @@ def profile():
 
     return render_template(
         'profile.html',
-        user_info=user_info, # Truyền namedtuple
+        user_info=user_info,
         user_timeline=timeline,
         can_change_password=can_change_password
     )
@@ -1435,7 +1373,6 @@ def profile():
 # ==========================================
 @app.route('/export_diagnosis', methods=['POST'])
 def export_diagnosis():
-    # ... (Import openpyxl, etc.) ...
     from openpyxl import Workbook
     from openpyxl.drawing.image import Image as ExcelImage
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1456,19 +1393,17 @@ def export_diagnosis():
 
     if user_role == 'doctor':
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute('SELECT "HoTen" FROM "NguoiDung" WHERE "ID" = %s', (data.get('benhnhan_id'),))
         row = cur.fetchone()
         conn.close()
-        # 👈 THAY ĐỔI: row[0] -> row['HoTen']
         patient_name = row['HoTen'] if row else "Không xác định"
         doctor_name = user_name
     else:
         patient_name = user_name
         doctor_name = "—"
 
-    # ... (Tất cả logic tạo Excel không thay đổi) ...
+    # --- Logic tạo Excel (Không thay đổi) ---
     wb = Workbook()
     ws = wb.active
     ws.title = "Báo cáo chẩn đoán"
@@ -1533,6 +1468,7 @@ def export_diagnosis():
         cell.alignment = center
         cell.fill = fill_high if data['risk_level'] == 'high' else fill_low
     ws.append([])
+    from html import unescape
     advice_raw = data.get('ai_advice') or "Chưa có lời khuyên từ AI."
     advice_text = re.sub(r'style="[^"]*"', '', advice_raw)
     advice_text = re.sub(r'<[^>]+>', '', advice_text)
@@ -1599,7 +1535,7 @@ def logout():
     return redirect(url_for('login'))
 
 # =========================================================
-# 📊 DASHBOARD THỐNG KÊ (Admin - Bản nâng cấp chuyên sâu)
+# 📊 DASHBOARD THỐNG KÊ (Admin)
 # =========================================================
 @app.route('/admin/dashboard')
 def admin_dashboard():
@@ -1608,15 +1544,13 @@ def admin_dashboard():
         return redirect(url_for('login'))
 
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
-    # 👈 THAY ĐỔI: Dùng key access
-    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'doctor\'')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()['count']
-    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'patient\'')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'patient\'')
     total_patients = cur.fetchone()['count']
-    cur.execute('SELECT COUNT(*) FROM "ChanDoan"')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "ChanDoan"')
     total_diagnoses = cur.fetchone()['count']
 
     cur.execute("""
@@ -1628,7 +1562,6 @@ def admin_dashboard():
         ORDER BY MIN("NgayChanDoan")
     """)
     monthly = cur.fetchall()
-    # 👈 THAY ĐỔI: Dùng key access
     months = [row['Thang'] for row in monthly]
     counts = [row['SoLuong'] for row in monthly]
     high_risk = [row['SoCao'] for row in monthly]
@@ -1639,7 +1572,6 @@ def admin_dashboard():
         GROUP BY "NguyCo"
     """)
     risk_data = cur.fetchall()
-    # 👈 THAY ĐỔI: Dùng key access
     risk_labels = [row['NguyCo'] for row in risk_data]
     risk_values = [row['SoLuong'] for row in risk_data]
 
@@ -1653,7 +1585,6 @@ def admin_dashboard():
         LIMIT 5
     """)
     top_doctors = cur.fetchall()
-    # 👈 THAY ĐỔI: Dùng key access
     top_names = [row['HoTen'] for row in top_doctors]
     top_counts = [row['SoCa'] for row in top_doctors]
     top_rates = [round(row['TyLeCao'], 1) for row in top_doctors]
@@ -1669,7 +1600,6 @@ def admin_dashboard():
         FROM "ChanDoan"
     """)
     row = cur.fetchone()
-    # 👈 THAY ĐỔI: Dùng key access
     avg_bmi = row['AvgBMI'] or 0
     avg_systolic = row['AvgHATT'] or 0
     avg_diastolic = row['AvgHATTr'] or 0
@@ -1687,13 +1617,12 @@ def admin_dashboard():
         ORDER BY "SoCa" DESC
     """)
     perf_rows = cur.fetchall()
-    # 👈 THAY ĐỔI: Dùng key access
     perf_names = [r['BacSi'] for r in perf_rows]
     perf_cases = [r['SoCa'] for r in perf_rows]
     perf_rate = [round(r['TyLeCao'] or 0, 1) for r in perf_rows]
 
-    cur.execute('SELECT COUNT(DISTINCT "BenhNhanID") FROM "ChanDoan"')
-    diagnosed_patients = cur.fetchone()['count'] # 👈 THAY ĐỔI
+    cur.execute('SELECT COUNT(DISTINCT "BenhNhanID") AS "count" FROM "ChanDoan"')
+    diagnosed_patients = cur.fetchone()['count']
     conn.close()
 
     return render_template(
@@ -1722,7 +1651,7 @@ def admin_dashboard():
     )
 
 # =========================================================
-# 🧑‍⚕️ Quản lý người dùng (Bác sỹ / Bệnh nhân) — Admin
+# 🧑‍⚕️ Quản lý người dùng (Admin)
 # =========================================================
 @app.route('/admin/manage_users', methods=['GET', 'POST'])
 def admin_manage_users():
@@ -1732,14 +1661,12 @@ def admin_manage_users():
 
     import datetime
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
     role_type = request.args.get('type', 'doctor')
     title_map = {'doctor': 'Bác sỹ', 'patient': 'Bệnh nhân'}
     page_title = f"Quản lý {title_map.get(role_type, 'N/A')}"
     
-    # ... (Logic Thêm/Sửa/Xóa, không đổi) ...
     if request.method == 'POST' and 'add_user' in request.form:
         ho_ten = request.form.get('ho_ten', '').strip()
         email = (request.form.get('email', '').strip().lower())
@@ -1751,11 +1678,10 @@ def admin_manage_users():
         if not is_valid_gmail(email):
             flash("Vui lòng nhập Gmail hợp lệ (ví dụ: ten@gmail.com).", "warning")
         else:
-            cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Email" = %s', (email,))
-            if cur.fetchone()['count'] > 0: # 👈 THAY ĐỔI
+            cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Email" = %s', (email,))
+            if cur.fetchone()['count'] > 0:
                 flash("Email này đã tồn tại trong hệ thống.", "warning")
             else:
-                # ... (Logic gửi mail, không đổi) ...
                 verification_code = f"{random.randint(100000, 999999)}"
                 payload = { "ho_ten": ho_ten, "gioi_tinh": gioi_tinh, "ngay_sinh": ngay_sinh, "email": email, "mat_khau": mat_khau, "dien_thoai": dien_thoai, "dia_chi": dia_chi, "role": role_type, "code": verification_code }
                 token = generate_invite_token(payload)
@@ -1808,19 +1734,20 @@ def admin_manage_users():
         WHERE "Role"=%s
         ORDER BY "NgayTao" DESC
     """, (role_type,))
-    users = cur.fetchall() # List of dicts
+    users = cur.fetchall()
 
-    # 👈 THAY ĐỔI: `users` đã là list of dicts.
     processed_users = []
     for user_dict in users:
-        if user_dict.get('NgaySinh') and isinstance(user_dict['NgaySinh'], str):
+        if user_dict.get('NgaySinh') and isinstance(user_dict['NgaySinh'], (str, datetime.date)):
             try:
-                user_dict['NgaySinh'] = datetime.datetime.strptime(user_dict['NgaySinh'].split(" ")[0], "%Y-%m-%d").date()
+                if isinstance(user_dict['NgaySinh'], str):
+                    user_dict['NgaySinh'] = datetime.datetime.strptime(user_dict['NgaySinh'].split(" ")[0], "%Y-%m-%d").date()
             except:
                 user_dict['NgaySinh'] = None
-        if user_dict.get('NgayTao') and isinstance(user_dict['NgayTao'], str):
+        if user_dict.get('NgayTao') and isinstance(user_dict['NgayTao'], (str, datetime.datetime)):
             try:
-                user_dict['NgayTao'] = datetime.datetime.strptime(user_dict['NgayTao'].split(" ")[0], "%Y-%m-%d").date()
+                if isinstance(user_dict['NgayTao'], str):
+                    user_dict['NgayTao'] = datetime.datetime.strptime(user_dict['NgayTao'].split(" ")[0], "%Y-%m-%d").date()
             except:
                 user_dict['NgayTao'] = None
         processed_users.append(user_dict)
@@ -1828,42 +1755,39 @@ def admin_manage_users():
     conn.close()
 
     return render_template('admin_users.html',
-                            users=processed_users, 
+                            users=processed_users,
                             role_type=role_type,
                             page_title=page_title)
 
 
 # ==========================================
-# 📊 XUẤT FILE EXCEL THỐNG KÊ HỆ THỐNG - Nâng cấp chuyên nghiệp
+# 📊 XUẤT FILE EXCEL THỐNG KÊ (Admin)
 # ==========================================
 @app.route('/export_admin_stats', methods=['POST'])
 def export_admin_stats():
-    # ... (Import openpyxl, etc.) ...
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from openpyxl.chart import PieChart, BarChart, LineChart, Reference
-    from openpyj.utils import get_column_letter
+    from openpyxl.utils import get_column_letter
     from io import BytesIO
     from flask import send_file
     from datetime import datetime
     
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
 
-    # 👈 THAY ĐỔI: Dùng key access
-    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'doctor\'')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'doctor\'')
     total_doctors = cur.fetchone()['count']
-    cur.execute('SELECT COUNT(*) FROM "NguoiDung" WHERE "Role"=\'patient\'')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "NguoiDung" WHERE "Role"=\'patient\'')
     total_patients = cur.fetchone()['count']
-    cur.execute('SELECT COUNT(*) FROM "ChanDoan"')
+    cur.execute('SELECT COUNT(*) AS "count" FROM "ChanDoan"')
     total_diagnoses = cur.fetchone()['count']
     cur.execute("""
         SELECT "NguyCo", COUNT(*) AS "SoLuong"
         FROM "ChanDoan"
         GROUP BY "NguyCo"
     """)
-    risk_data = cur.fetchall() # List of dicts
+    risk_data = cur.fetchall()
     cur.execute("""
         SELECT bs."HoTen", COUNT(cd."ChanDoanID") AS "SoCa"
         FROM "ChanDoan" cd
@@ -1872,7 +1796,7 @@ def export_admin_stats():
         ORDER BY "SoCa" DESC
         LIMIT 5
     """)
-    top_doctors = cur.fetchall() # List of dicts
+    top_doctors = cur.fetchall()
     cur.execute("""
         SELECT ND."HoTen" AS "BacSi",
                COUNT(CD."ChanDoanID") AS "SoCa",
@@ -1882,10 +1806,10 @@ def export_admin_stats():
         GROUP BY ND."HoTen"
         ORDER BY "SoCa" DESC
     """)
-    perf_rows = cur.fetchall() # List of dicts
+    perf_rows = cur.fetchall()
     conn.close()
 
-    # ... (Tạo Excel, không đổi) ...
+    # --- Logic tạo Excel (Không thay đổi) ---
     wb = Workbook()
     ws = wb.active
     ws.title = "Tổng quan hệ thống"
@@ -1915,8 +1839,6 @@ def export_admin_stats():
         cell.fill = fill_blue
         cell.alignment = align_center
         cell.border = border
-    
-    # 👈 THAY ĐỔI: Dùng key access
     for idx, d in enumerate(top_doctors, start=1):
         ws.append([d['HoTen'], d['SoCa']])
         for cell in ws[ws.max_row]:
@@ -1925,7 +1847,6 @@ def export_admin_stats():
                 cell.fill = fill_gray
     ws.column_dimensions["A"].width = 40
     ws.column_dimensions["B"].width = 20
-
     ws2 = wb.create_sheet("Bác sỹ - Bệnh nhân")
     ws2.append(["Loại tài khoản", "Số lượng"])
     ws2.append(["Bác sỹ", total_doctors])
@@ -1951,10 +1872,8 @@ def export_admin_stats():
     pie.dLbls.showPercent = True
     pie.dLbls.showCatName = True
     ws2.add_chart(pie, "D5")
-
     ws3 = wb.create_sheet("Nguy cơ cao - thấp")
     ws3.append(["Mức nguy cơ", "Số lượng"])
-    # 👈 THAY ĐỔI: Dùng key access
     for r in risk_data:
         ws3.append([r['NguyCo'], r['SoLuong']])
     for cell in ws3[1]:
@@ -1970,10 +1889,8 @@ def export_admin_stats():
     bar.set_categories(cats)
     bar.y_axis.title = "Số lượng"
     ws3.add_chart(bar, "E5")
-
     ws4 = wb.create_sheet("Hiệu suất bác sỹ")
     ws4.append(["Bác sỹ", "Số ca", "Tỷ lệ nguy cơ cao (%)"])
-    # 👈 THAY ĐỔI: Dùng key access
     for p in perf_rows:
         ws4.append([p['BacSi'], p['SoCa'], round(p['TyLeCao'] or 0, 1)])
     for cell in ws4[1]:
@@ -2002,7 +1919,6 @@ def export_admin_stats():
     chart.y_axis.crosses = "max"
     chart += line
     ws4.add_chart(chart, "E5")
-
     ws5 = wb.create_sheet("Ghi chú & Chữ ký")
     ws5["A1"] = "Ghi chú:"
     ws5["A2"] = "• Báo cáo được xuất tự động từ hệ thống CVD-App."
@@ -2042,7 +1958,7 @@ def tips():
     return render_template('tips.html')
 
 # ============================================
-# 🤖 API CHAT AI (AJAX) — Nâng cấp chuyên nghiệp
+# 🤖 API CHAT AI (AJAX)
 # ============================================
 @app.route('/chat_ai_api', methods=['POST'])
 def chat_ai_api():
@@ -2059,7 +1975,6 @@ def chat_ai_api():
         return jsonify({'reply': 'Vui lòng nhập câu hỏi của bạn.'})
 
     try:
-        # ... (Logic Gemini, không đổi) ...
         model = genai.GenerativeModel(MODEL_NAME)
         prompt = f"""
         Bạn là **Trợ lý y tế ảo CVD-AI**, chuyên tư vấn về **bệnh tim mạch, huyết áp, tiểu đường, lối sống lành mạnh**.
@@ -2085,10 +2000,8 @@ def chat_ai_api():
                     .replace("#", "")
         )
 
-        # --- Lưu vào cơ sở dữ liệu ---
         user_id = session.get('user_id')
         conn = get_connection()
-        # 👈 THAY ĐỔI: Dùng DictCursor
         cur = conn.cursor(cursor_factory=DictCursor)
         cur.execute("""
             INSERT INTO "TinNhanAI" ("BenhNhanID", "NoiDung", "PhanHoi", "ThoiGian")
@@ -2106,7 +2019,7 @@ def chat_ai_api():
         })
 
 # ==========================================
-# 📜 API lấy lịch sử chat AI của người dùng hiện tại
+# 📜 API lấy lịch sử chat AI
 # ==========================================
 @app.route('/chat_ai_history', methods=['GET'])
 def chat_ai_history():
@@ -2115,18 +2028,16 @@ def chat_ai_history():
 
     user_id = session['user_id']
     conn = get_connection()
-    # 👈 THAY ĐỔI: Dùng DictCursor
     cur = conn.cursor(cursor_factory=DictCursor)
     cur.execute("""
         SELECT "NoiDung", "PhanHoi", TO_CHAR("ThoiGian", 'HH24:MI DD/MM') AS "ThoiGian"
         FROM "TinNhanAI"
         WHERE "BenhNhanID" = %s
-        ORDER BY "ThoiGian"
-    """, (user_id,))
-    rows = cur.fetchall() # List of dicts
+        ORDER BY "ID" ASC
+    """, (user_id,)) # Sửa lại ORDER BY "ID" ASC để lấy lịch sử đúng thứ tự
+    rows = cur.fetchall()
     conn.close()
 
-    # 👈 THAY ĐỔI: Dùng key access
     messages = [
         {'user': r['NoiDung'], 'ai': r['PhanHoi'], 'time': r['ThoiGian']}
         for r in rows
